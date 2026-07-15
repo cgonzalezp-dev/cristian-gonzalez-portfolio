@@ -200,7 +200,7 @@ export const testimonials = {
   items: [
     {
       quote:
-        "Cristian is the kind of leader who pushes you out of your comfort zone so you can show what you're actually capable of. He was the first step in my professional growth — I'm still building on what he gave me.",
+        "Cristian is the kind of leader who pushes you out of your comfort zone so you can show what you're actually capable of. He was the first step in a professional growth that hasn't stopped since.",
       name: "Sara Marcela Mesa Gómez",
       title: "HR Projects | Talent & Organizational Strategy | People Analytics",
     },
