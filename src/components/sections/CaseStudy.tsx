@@ -3,6 +3,7 @@ import { caseStudy } from "@/data/content";
 import { Section } from "@/components/ui/Section";
 import { Card } from "@/components/ui/Card";
 import { Reveal } from "@/components/ui/Reveal";
+import { Badge } from "@/components/ui/Badge";
 
 const steps = [
   { icon: AlertTriangle, label: "Situation", text: caseStudy.situation },
@@ -13,6 +14,15 @@ const steps = [
 export function CaseStudy() {
   return (
     <Section id="case-study" tone="raised" eyebrow={caseStudy.heading} heading={caseStudy.title}>
+      {caseStudy.methodology && caseStudy.methodology.length > 0 && (
+        <Reveal delay={0.05}>
+          <div className="mb-6 flex flex-wrap gap-2">
+            {caseStudy.methodology.map((tag) => (
+              <Badge key={tag}>{tag}</Badge>
+            ))}
+          </div>
+        </Reveal>
+      )}
       <div className="grid gap-6 sm:grid-cols-3">
         {steps.map((step, index) => (
           <Reveal key={step.label} delay={index * 0.1}>

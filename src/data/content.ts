@@ -110,7 +110,7 @@ export type Stat = {
   value: string;
   label: string;
   direction: "up" | "down" | "neutral";
-  detail?: { title: string; body: string };
+  detail?: { title: string; body: string; methodology?: string[] };
 };
 
 export const results: Stat[] = [
@@ -121,6 +121,7 @@ export const results: Stat[] = [
     detail: {
       title: "Proactive onboarding, end-to-end",
       body: "This account's ROI started at 81%. Rather than patch individual complaints, I redesigned onboarding end-to-end: client profiling, rate/pricing structure, defined commitments, process improvements, and — at the close — new measures rolled out from supporting areas. ROI reached 360% (3.6x baseline).",
+      methodology: ["VoC", "VoN", "CTX Measures", "DMAIC"],
     },
   },
   {
@@ -130,6 +131,7 @@ export const results: Stat[] = [
     detail: {
       title: "Coffee talks and collective problem-solving",
       body: "Cut attrition 5% QoQ by opening regular 'coffee talk' spaces — working collectively with staff on what agents actually needed, then aligning that to client objectives. Started with emotional-salary initiatives, then layered in performance-based financial incentives, time off, immediate tangible rewards, and public recognition.",
+      methodology: ["VoE", "Kano Model"],
     },
   },
   {
@@ -139,6 +141,7 @@ export const results: Stat[] = [
     detail: {
       title: "From 3 agents to 60",
       body: "One sales account scaled from 3 agents to 60 under my leadership — part of the footprint that now totals 450+ FTE. Growth like that only holds if the team structure keeps pace with headcount, not the other way around.",
+      methodology: ["Process Capability"],
     },
   },
   {
@@ -148,6 +151,7 @@ export const results: Stat[] = [
     detail: {
       title: "Weekly learning, real-time feedback",
       body: "9 of 25 were promoted because growth was built into the week, not saved for annual reviews. Weekly learning sessions and real-time feedback — delivered in the moment, not weeks later — helped people work from motivation toward their goals, not just toward a score.",
+      methodology: ["Control Phase", "VoE"],
     },
   },
 ];
@@ -160,6 +164,7 @@ export const caseStudy = {
   action:
     "I designed a peer incentive system, proposed the budget to fund it, and built a weekly ritual where every team showed the others what was actually working.",
   result: "QA went from under 80% to 90% in four weeks — and the system outlived the crisis that started it.",
+  methodology: ["Process- vs. Agent-Level Fix", "DMAIC: Analyze → Improve"],
 };
 
 export type SkillGroup = { category: string; items: string[] };

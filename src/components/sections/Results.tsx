@@ -5,6 +5,7 @@ import { results } from "@/data/content";
 import { Section } from "@/components/ui/Section";
 import { Stat } from "@/components/ui/Stat";
 import { Reveal } from "@/components/ui/Reveal";
+import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/utils/cn";
 
 export function Results() {
@@ -74,6 +75,13 @@ export function Results() {
               <p className="mt-3 text-base leading-relaxed text-ink-700 dark:text-paper-100/80">
                 {active.detail.body}
               </p>
+              {active.detail.methodology && active.detail.methodology.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {active.detail.methodology.map((tag) => (
+                    <Badge key={tag}>{tag}</Badge>
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
         )}
