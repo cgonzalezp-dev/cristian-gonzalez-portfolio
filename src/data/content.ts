@@ -106,10 +106,23 @@ export const experience: TimelineEntry[] = [
   },
 ];
 
-export type Stat = { value: string; label: string; direction: "up" | "down" | "neutral" };
+export type Stat = {
+  value: string;
+  label: string;
+  direction: "up" | "down" | "neutral";
+  detail?: { title: string; body: string };
+};
 
 export const results: Stat[] = [
-  { value: "3.6x", label: "ROI on client investments", direction: "up" },
+  {
+    value: "3.6x",
+    label: "ROI on client investments",
+    direction: "up",
+    detail: {
+      title: "Proactive onboarding, end-to-end",
+      body: "This account's ROI started at 81%. Rather than patch individual complaints, I redesigned onboarding end-to-end: client profiling, rate/pricing structure, defined commitments, process improvements, and — at the close — new measures rolled out from supporting areas. ROI reached 360% (3.6x baseline).",
+    },
+  },
   { value: "-5%", label: "Attrition, QoQ", direction: "down" },
   { value: "450+", label: "FTE managed", direction: "neutral" },
   { value: "9/25", label: "Team members promoted", direction: "up" },
