@@ -22,11 +22,11 @@ export default function App() {
       <main>
         <Hero />
         <About />
-        <Philosophy />
         <Experience />
         <Results />
         <CaseStudy />
         <Skills />
+        <Philosophy />
         <Learning />
         <Personal />
         <Testimonials />

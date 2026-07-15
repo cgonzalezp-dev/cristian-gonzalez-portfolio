@@ -16,11 +16,11 @@ export const person = {
 
 export const nav = [
   { label: "About", href: "#about" },
-  { label: "Philosophy", href: "#philosophy" },
   { label: "Experience", href: "#experience" },
   { label: "Results", href: "#results" },
   { label: "Case Study", href: "#case-study" },
   { label: "Skills", href: "#skills" },
+  { label: "Philosophy", href: "#philosophy" },
   { label: "Contact", href: "#contact" },
 ] as const;
 

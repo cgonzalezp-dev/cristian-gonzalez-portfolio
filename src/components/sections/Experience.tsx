@@ -8,7 +8,7 @@ export function Experience() {
       id="experience"
       eyebrow="Experience"
       heading="Eight years, one company, five promotions."
-      description="Every step here was earned internally — not a lateral hire."
+      description="Every step here was earned internally."
     >
       <Timeline entries={experience} />
     </Section>
