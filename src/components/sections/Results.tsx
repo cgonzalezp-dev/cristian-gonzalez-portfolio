@@ -19,7 +19,7 @@ export function Results() {
       heading="Numbers, as evidence — not decoration."
       description="Click a result for the story behind it."
     >
-      <div className="grid grid-cols-2 gap-x-8 gap-y-12 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-x-8 gap-y-8 sm:grid-cols-4">
         {results.map((stat, index) => {
           const hasDetail = Boolean(stat.detail);
           const isOpen = openIndex === index;

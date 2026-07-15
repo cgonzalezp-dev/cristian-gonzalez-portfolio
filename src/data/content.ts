@@ -169,9 +169,19 @@ export const learning: LearningItem[] = [
   { label: "Sales Strategy & Performance", detail: "LinkedIn Learning, 2026" },
 ];
 
+export type Testimonial = { quote: string; name: string; title: string };
+
 export const testimonials = {
   heading: "Recommendations",
-  emptyState: "Recommendations coming soon — this space is reserved for the people I've worked with.",
+  items: [
+    {
+      quote:
+        "Congraaaats, Cristian. Well Deserved! 🥳 You're a great leader who encouraged me to step out of my comfort zone and showcase my skills. You were the first step that helped me grow professionally and get to where I am today 💖 I'm more than grateful to you.",
+      name: "Sara Marcela Mesa Gómez",
+      title: "HR Projects | Talent & Organizational Strategy | People Analytics",
+    },
+  ] as Testimonial[],
+  emptyState: "More recommendations coming soon.",
 };
 
 export const finalCta = {

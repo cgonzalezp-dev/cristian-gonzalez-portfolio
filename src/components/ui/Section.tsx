@@ -26,7 +26,7 @@ export function Section({
     <section
       id={id}
       className={cn(
-        "py-20 sm:py-28 scroll-mt-20",
+        "py-12 sm:py-16 scroll-mt-20",
         tone === "raised" && "bg-ink-900/[0.03] dark:bg-white/[0.02]",
         className,
       )}
@@ -34,7 +34,7 @@ export function Section({
     >
       <Container>
         {(eyebrow || heading || description) && (
-          <Reveal className="mb-12 max-w-2xl">
+          <Reveal className="mb-8 max-w-2xl">
             {eyebrow && (
               <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-brass-500">{eyebrow}</p>
             )}
