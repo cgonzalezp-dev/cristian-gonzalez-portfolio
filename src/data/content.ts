@@ -10,7 +10,7 @@ export const person = {
   tagline: "Building the leaders who build the business.",
   location: "Bogotá, Colombia",
   email: "cristhian.gonzalez2013@gmail.com",
-  linkedin: "https://www.linkedin.com/in/cristiangonzalez-94bbab174",
+  linkedin: "https://www.linkedin.com/in/cristian-gonzalez-94bbab174/",
   resumeUrl: "resume.pdf",
 };
 
