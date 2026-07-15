@@ -123,9 +123,33 @@ export const results: Stat[] = [
       body: "This account's ROI started at 81%. Rather than patch individual complaints, I redesigned onboarding end-to-end: client profiling, rate/pricing structure, defined commitments, process improvements, and — at the close — new measures rolled out from supporting areas. ROI reached 360% (3.6x baseline).",
     },
   },
-  { value: "-5%", label: "Attrition, QoQ", direction: "down" },
-  { value: "450+", label: "FTE managed", direction: "neutral" },
-  { value: "9/25", label: "Team members promoted", direction: "up" },
+  {
+    value: "-5%",
+    label: "Attrition, QoQ",
+    direction: "down",
+    detail: {
+      title: "Coffee talks and collective problem-solving",
+      body: "Cut attrition 5% QoQ by opening regular 'coffee talk' spaces — working collectively with staff on what agents actually needed, then aligning that to client objectives. Started with emotional-salary initiatives, then layered in performance-based financial incentives, time off, immediate tangible rewards, and public recognition.",
+    },
+  },
+  {
+    value: "450+",
+    label: "FTE managed",
+    direction: "neutral",
+    detail: {
+      title: "From 3 agents to 60",
+      body: "One sales account scaled from 3 agents to 60 under my leadership — part of the footprint that now totals 450+ FTE. Growth like that only holds if the team structure keeps pace with headcount, not the other way around.",
+    },
+  },
+  {
+    value: "9/25",
+    label: "Team members promoted",
+    direction: "up",
+    detail: {
+      title: "Weekly learning, real-time feedback",
+      body: "9 of 25 were promoted because growth was built into the week, not saved for annual reviews. Weekly learning sessions and real-time feedback — delivered in the moment, not weeks later — helped people work from motivation toward their goals, not just toward a score.",
+    },
+  },
 ];
 
 export const caseStudy = {
@@ -176,7 +200,7 @@ export const testimonials = {
   items: [
     {
       quote:
-        "Congraaaats, Cristian. Well Deserved! 🥳 You're a great leader who encouraged me to step out of my comfort zone and showcase my skills. You were the first step that helped me grow professionally and get to where I am today 💖 I'm more than grateful to you.",
+        "Cristian is the kind of leader who pushes you out of your comfort zone so you can show what you're actually capable of. He was the first step in my professional growth — I'm still building on what he gave me.",
       name: "Sara Marcela Mesa Gómez",
       title: "HR Projects | Talent & Organizational Strategy | People Analytics",
     },
