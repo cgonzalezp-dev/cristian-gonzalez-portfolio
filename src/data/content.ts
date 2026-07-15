@@ -54,7 +54,7 @@ export const personal = {
 export const philosophy = {
   heading: "How I lead",
   quote:
-    "I lead the way I live: learning in public. I run to carry the pressure, and I keep studying so I never stand still — because a team never outgrows its leader. It grows exactly as fast as it watches him grow.",
+    "Good teams need leaders who keep growing. That's why I never stopped learning — and why I expect the same from everyone I work with.",
 };
 
 export type TimelineEntry = {
