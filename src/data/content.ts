@@ -28,7 +28,7 @@ export const hero = {
   eyebrow: "Operations Leader · BPO",
   headline: "I don't just run operations. I build the leaders who run them.",
   subhead:
-    "8+ years scaling BPO operations from the ground up — 450+ FTE, 3.6x ROI, and a track record of promoting from within, not hiring around problems.",
+    "8+ years scaling BPO operations from the ground up — 450+ FTE, 3.6x ROI, and a track record of promoting from within.",
   primaryCta: { label: "Let's talk", href: `mailto:${person.email}` },
   secondaryCta: { label: "Download résumé", href: person.resumeUrl },
 };
@@ -36,7 +36,7 @@ export const hero = {
 export const about = {
   heading: "About",
   paragraphs: [
-    "I started as a customer service rep in 2018. Every role since — Trainer, Supervisor, Account Executive, Senior Account Manager — was an internal promotion, not a lateral hire. That pattern isn't an accident; it's the result I optimize for.",
+    "I started as a customer service rep in 2018. Every role since — Trainer, Supervisor, Account Executive, Senior Account Manager — was an internal promotion. That pattern isn't an accident; it's the result I optimize for.",
     "I manage 450+ FTE and strategic accounts across North America, LATAM, EMEA, APAC and Africa, but the number I actually track closest is how many of the people on my team move into more responsibility than they started with.",
   ],
 };
@@ -45,7 +45,7 @@ export const personal = {
   heading: "Beyond the role",
   description: "The habits that keep me trained to lead — not a break from the work, the reason I can keep doing it.",
   items: [
-    { label: "Family", detail: "Recently married; family time is non-negotiable." },
+    { label: "Family", detail: "Recently married; family comes first." },
     { label: "Running", detail: "Recreational runner — how I carry pressure without carrying it home." },
     { label: "Languages", detail: "Native Spanish, professional English, learning Portuguese." },
   ],
@@ -209,7 +209,7 @@ export const testimonials = {
 };
 
 export const finalCta = {
-  heading: "If you're scaling a team, let's talk.",
+  heading: "I'd welcome the conversation.",
   subhead: "Open to Director-level operations and account leadership roles.",
   cta: { label: "Get in touch", href: `mailto:${person.email}` },
 };
