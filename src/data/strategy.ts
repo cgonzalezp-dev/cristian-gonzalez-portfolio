@@ -25,7 +25,7 @@ export const strategyHero = {
   subhead:
     "A Tier-1 auto-insurance program shifted from customer experience to commercial delivery in six months. Conversion sits at 20% against a 30% target. This is the operating system to close that gap — and to earn the mandate to scale.",
   positioning:
-    "Presented not as a rescue, but as a facilitator: a repeatable method to identify, prioritize, execute, and measure — so the number moves without heroics.",
+    "Presented not as a rescue, but as a facilitator: a repeatable method to identify, prioritize, execute, and measure — so the number moves through the system, not firefighting.",
   metrics: [
     { value: "20%", label: "Current conversion", tone: "down" as const },
     { value: "30%", label: "Client target", tone: "neutral" as const },
@@ -43,11 +43,11 @@ export const execSummary = {
     },
     {
       tag: "Problem",
-      text: "Conversion sits below the 30% floor. Occupancy is low, daily minimums slip, and the team was hired to support — not to sell. Commercial confidence has eroded.",
+      text: "Conversion sits below the 30% floor. Occupancy is low, daily minimums slip, and the team was hired to support — not to sell. Commercial confidence has dropped.",
     },
     {
       tag: "Impact",
-      text: "Below target, volume and renewal are at risk and rival vendors get an opening. Every week without traceable results widens the gap.",
+      text: "Below target, volume and renewal are at risk and rival vendors get an opening. Every week without measurable results widens the gap.",
     },
     {
       tag: "Opportunity",
@@ -79,8 +79,8 @@ export const currentState = {
     {
       dimension: "Company",
       painPoint:
-        "Team leaders hold limited positioning with the client's volume decision-maker; boundaries on scope and timelines aren't set. Process definition and results traceability are thin, and weekly/monthly business reviews lack structure.",
-      businessImpact: "No measurement spine; wins aren't provable.",
+        "Team leaders hold limited positioning with the client's volume decision-maker; boundaries on scope and timelines aren't set. Process definition and results tracking are thin, and weekly/monthly business reviews lack structure.",
+      businessImpact: "No measurement backbone; wins can't be proven.",
       risk: "Decisions made about us, not with us.",
     },
     {
@@ -88,7 +88,7 @@ export const currentState = {
       painPoint:
         "Agents were hired for experience delivery, not selling. Change-readiness is low, commercial bonus schemes are unclear, and there is no real-time visibility into contactability, conversion, or service level.",
       businessImpact: "Effort isn't aimed at the number; supervision-dependent.",
-      risk: "Top talent is the most portable.",
+      risk: "Top talent is the easiest to poach.",
     },
   ] satisfies PainCard[],
 };
@@ -104,14 +104,14 @@ export type SwotQuadrant = {
 export const swot = {
   eyebrow: "SWOT",
   heading: "The board, and the move each square demands.",
-  description: "Every quadrant carries an insight, a consequence, and the action it obligates — no square is decorative.",
+  description: "Every quadrant carries an insight, a consequence, and the action it calls for — no square is just for show.",
   quadrants: [
     {
       key: "strengths",
       title: "Strengths",
       insight:
         "A year of account-specific know-how puts us ahead of any incoming vendor, and holding the full market gives us reliable data for Voice of Customer and NPS analysis.",
-      implication: "Incumbency + data = a moat, if made provable.",
+      implication: "Our head start + data = a real edge, if we prove it.",
       move: "Turn data into a weekly client narrative.",
     },
     {
@@ -152,7 +152,7 @@ export const framework = {
   eyebrow: "Transformation Framework",
   heading: "A method, not an opinion.",
   description:
-    "A Lean Six Sigma spine (DMAIC) adapted to a commercial contact-center turnaround. Each stage answers one question and hands the next stage a decision, not a document.",
+    "A Lean Six Sigma backbone (DMAIC) adapted to a commercial contact-center turnaround. Each stage answers one question and hands the next stage a decision, not a document.",
   phases: [
     {
       step: "01",
@@ -164,7 +164,7 @@ export const framework = {
       step: "02",
       name: "Measure",
       question: "What is really happening?",
-      detail: "Instrument contactability, conversion, occupancy, and service level in real time — visible to the agent, not just the report.",
+      detail: "Track contactability, conversion, occupancy, and service level in real time — visible to the agent, not just the report.",
     },
     {
       step: "03",
@@ -182,7 +182,7 @@ export const framework = {
       step: "05",
       name: "Control",
       question: "How does it stay fixed?",
-      detail: "Standard work, tier meetings, daily huddles, control plans, and a weekly client scorecard that makes results traceable.",
+      detail: "Standard work, tier meetings, daily huddles, control plans, and a weekly client scorecard that makes results measurable.",
     },
   ] satisfies FrameworkPhase[],
 };
@@ -210,7 +210,7 @@ export const roadmap = {
       horizon: "Frontline activation",
       title: "Make the interaction win",
       objective:
-        "Give every agent a clear line to conversion and a reason to run it — profile the roster, guide the interaction, and align the incentive to the new rubric.",
+        "Give every agent a clear line to conversion and a reason to run it — profile the team, guide the interaction, and align the incentive to the new rubric.",
       actions: [
         "Build a commercial profiling rubric for agents and staff — decide who continues, who develops in place, who is re-profiled.",
         "Ship the Agent Success Path: objective-by-objective guidance for each inbound and outbound interaction, ending in a booking.",
@@ -223,7 +223,7 @@ export const roadmap = {
       ],
       kpis: ["Conversion 20% → 30%", "≥100 interactions/agent/day", "Occupancy & SLA visibility"],
       risks: ["Quota renegotiation stalls", "Incentive cost exceeds benchmark"],
-      deliverables: ["Commercial rubric v1", "Agent Success Path", "Live performance visual", "Incentive & spiff model"],
+      deliverables: ["Commercial rubric v1", "Agent Success Path", "Live performance visual", "Incentive & bonus model"],
     },
     {
       phase: "Phase 2",
@@ -250,10 +250,10 @@ export const roadmap = {
       horizon: "Scale & sustain",
       title: "Earn the next mandate",
       objective:
-        "Calibrate the roster for fit, harden the training rubric, and use a green scorecard to negotiate complex Tier-2 pilots — expanding scope through consultancy and Six Sigma rigor.",
+        "Review the team for fit, tighten the training rubric, and use a green scorecard to negotiate complex Tier-2 pilots — expanding scope through consulting and Six Sigma rigor.",
       actions: [
-        "Run structured role-fit calibration: transition out where fit and will are both absent, recruiting willing talent in parallel so coverage never dips.",
-        "Harden the Training rubric to reinforce the gaps surfaced in the Agent Success Path.",
+        "Run a structured role-fit review: transition out where fit and will are both absent, recruiting willing talent in parallel so coverage never dips.",
+        "Tighten the Training rubric to reinforce the gaps surfaced in the Agent Success Path.",
         "Meet the green scorecard, then negotiate small pilots to absorb complex Tier-2 responsibilities currently routed away from us.",
         "Apply Voice of Customer and Six Sigma methods to reduce defects per million and improve decisions in-flight.",
       ],
@@ -262,8 +262,8 @@ export const roadmap = {
         "Best-practice library compounds from booster winners.",
       ],
       kpis: ["Green scorecard sustained", "DPMO reduction", "Scope migrated from Tier-2"],
-      risks: ["Client hesitancy on scope transfer", "Talent poaching during calibration"],
-      deliverables: ["Role-fit calibration plan", "Hardened training rubric", "Tier-2 pilot proposal"],
+      risks: ["Client pushback on scope transfer", "Talent poaching during the review"],
+      deliverables: ["Role-fit review plan", "Tightened training rubric", "Tier-2 pilot proposal"],
     },
   ] satisfies RoadmapPhase[],
 };
@@ -282,7 +282,7 @@ export const commercial = {
     { name: "Agent Success Path", description: "Objective-driven guidance for every interaction, ending in a booked appointment." },
     { name: "Commercial Rubric", description: "A shared standard that separates skill gaps from will gaps — for agents and staff alike." },
     { name: "Coaching Framework", description: "Real-time feedback and weekly learning, built on commercial fundamentals." },
-    { name: "Incentives", description: "Financial and emotional, aligned to the rubric — with boosters and last-minute spiffs to lift intent." },
+    { name: "Incentives", description: "Financial and emotional, aligned to the rubric — with boosters and last-minute bonuses to lift intent." },
     { name: "Leader Enablement", description: "Positioning leaders to set boundaries and shape volume decisions with the client." },
     { name: "Performance Visibility", description: "Live visuals of contactability, conversion, and service level — for the agent, not just the report." },
     { name: "Benchmarking", description: "A financial benchmark that costs incentives without exceeding company expectations." },
@@ -385,7 +385,7 @@ export const businessImpact = {
   description: "The same five levers, before and after the operating system is in place.",
   rows: [
     { lever: "People", current: "Hired for CX, low change-readiness", future: "Profiled, coached, and self-driven to the number" },
-    { lever: "Process", current: "Thin definition, weak traceability", future: "Standard work with a measurement spine" },
+    { lever: "Process", current: "Thin definition, weak tracking", future: "Standard work with a measurement backbone" },
     { lever: "Customer", current: "Eroded confidence in commercial fit", future: "Structured weekly proof of results" },
     { lever: "Financial", current: "Conversion at 20%, volume at risk", future: "30%+ floor, scope-expansion upside" },
     { lever: "Operational", current: "Supervision-dependent, reactive", future: "Visible, benchmarked, and controlled" },
