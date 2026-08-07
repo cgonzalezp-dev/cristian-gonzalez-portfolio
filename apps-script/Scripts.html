@@ -1,0 +1,353 @@
+<script>
+/* ===========================================================================
+   Scripts.html — application state, routing, global filters, boot.
+   ========================================================================= */
+
+/* ----------------------------------------------------------------- state */
+
+const State = {
+  user: { role: 'VIEWER', capabilities: [] },
+  settings: {},
+  enums: {},
+  lobs: [],
+  metrics: [],
+  periods: [],
+  dims: { agent: [], team: [], manager: [], region: [], cohort: [] },
+  initialised: false,
+
+  filters: {
+    lob_id: '',
+    metric_id: '',
+    period_type: 'WEEKLY',
+    period_count: 12
+  },
+
+  /** Load everything the client needs to render any view without a round trip. */
+  load: function () {
+    return API.call('app.context', {}).then(function (ctx) {
+      State.user = ctx.user;
+      State.settings = ctx.settings;
+      State.enums = ctx.enums;
+      State.initialised = ctx.initialised;
+      document.title = ctx.app.name;
+      return State.reload();
+    });
+  },
+
+  reload: function () {
+    return Promise.all([
+      API.call('lob.list', {}),
+      API.call('metric.list', {}),
+      API.call('period.list', {}),
+      API.call('dim.list', { dimension: 'agent' }),
+      API.call('dim.list', { dimension: 'team' }),
+      API.call('dim.list', { dimension: 'manager' }),
+      API.call('dim.list', { dimension: 'region' }),
+      API.call('dim.list', { dimension: 'cohort' })
+    ]).then(function (r) {
+      State.lobs = r[0];
+      State.metrics = r[1];
+      State.periods = r[2];
+      State.dims = { agent: r[3], team: r[4], manager: r[5], region: r[6], cohort: r[7] };
+      State.initialised = State.metrics.length > 0;
+      renderFilters();
+      return State;
+    });
+  },
+
+  lobName: function (id) {
+    const l = State.lobs.filter(function (x) { return x.lob_id === id; })[0];
+    return l ? l.lob_name : '';
+  },
+
+  metricById: function (id) {
+    return State.metrics.filter(function (m) { return m.metric_id === id; })[0] || null;
+  },
+
+  /** Resolve any dimension id to a display name — used by audit and entry logs. */
+  anyName: function (id) {
+    if (!id) return '';
+    const pools = [
+      [State.lobs, 'lob_id', 'lob_name'],
+      [State.dims.agent, 'agent_id', 'agent_name'],
+      [State.dims.team, 'team_id', 'team_name'],
+      [State.dims.manager, 'manager_id', 'manager_name'],
+      [State.dims.region, 'region_id', 'region_name'],
+      [State.dims.cohort, 'cohort_id', 'cohort_name']
+    ];
+    for (let i = 0; i < pools.length; i++) {
+      const hit = pools[i][0].filter(function (r) { return r[pools[i][1]] === id; })[0];
+      if (hit) return hit[pools[i][2]];
+    }
+    return id;
+  },
+
+  subjectName: function (type, id) {
+    if (type === 'GLOBAL') return 'Organisation';
+    return State.anyName(id) || id;
+  }
+};
+
+/* ---------------------------------------------------------------- router */
+
+const Router = {
+  current: 'dashboard',
+  params: {},
+
+  routes: {
+    dashboard: Views.dashboard,
+    lob:       Views.lob,
+    metric:    Views.metric,
+    entry:     Views.entry,
+    config:    Views.config
+  },
+
+  go: function (route, params) {
+    if (!Router.routes[route]) route = 'dashboard';
+    Router.current = route;
+    Router.params = params || {};
+
+    qsa('.nav-item').forEach(function (n) {
+      n.classList.toggle('active', n.getAttribute('data-route') === route);
+    });
+    qs('.nav').classList.remove('open');
+
+    const view = Router.routes[route];
+    qs('#page-title').textContent = view.title;
+    qs('#page-sub').textContent = view.subtitle || '';
+
+    // Filters are irrelevant on configuration screens.
+    qs('#filters').classList.toggle('hidden', route === 'config');
+
+    const content = qs('#content');
+    content.innerHTML = '';
+    try {
+      view.render(content, Router.params);
+    } catch (err) {
+      content.innerHTML = '';
+      content.appendChild(emptyState('This view could not be rendered',
+        err && err.message ? err.message : String(err)));
+    }
+
+    try {
+      history.replaceState({}, '', '#' + route);
+    } catch (e) { /* sidebar context disallows history — harmless */ }
+  },
+
+  refresh: function () { Router.go(Router.current, Router.params); }
+};
+
+/* --------------------------------------------------------- global filters */
+
+function renderFilters() {
+  const host = qs('#filters');
+  if (!host) return;
+  host.innerHTML = '';
+
+  host.appendChild(selectField({
+    label: 'Line of business', inline: true, value: State.filters.lob_id,
+    placeholder: 'All',
+    options: State.lobs.map(function (l) {
+      return { value: l.lob_id, label: l.lob_name };
+    }),
+    onChange: function (v) { State.filters.lob_id = v; Router.refresh(); }
+  }));
+
+  host.appendChild(selectField({
+    label: 'Metric', inline: true, value: State.filters.metric_id,
+    placeholder: 'All',
+    options: State.metrics.map(function (m) {
+      return { value: m.metric_id, label: m.display_name || m.metric_name };
+    }),
+    onChange: function (v) { State.filters.metric_id = v; Router.refresh(); }
+  }));
+
+  host.appendChild(selectField({
+    label: 'Frequency', inline: true, value: State.filters.period_type,
+    options: (State.enums.periodTypes || ['WEEKLY']).map(function (p) {
+      return { value: p, label: p.charAt(0) + p.slice(1).toLowerCase() };
+    }),
+    onChange: function (v) { State.filters.period_type = v; Router.refresh(); }
+  }));
+
+  host.appendChild(selectField({
+    label: 'Periods shown', inline: true, value: String(State.filters.period_count),
+    options: [4, 8, 12, 26, 52].map(function (n) {
+      return { value: String(n), label: 'Last ' + n };
+    }),
+    onChange: function (v) { State.filters.period_count = parseInt(v, 10); Router.refresh(); }
+  }));
+
+  host.appendChild(el('div', { class: 'filter', style: 'margin-left:auto' }, [
+    el('label', { class: 'filter-label', text: ' ' }),
+    el('button', { class: 'btn btn-sm', html: icon('refresh', 13) + ' Refresh',
+      onclick: function () { State.reload().then(Router.refresh); }})
+  ]));
+}
+
+/* ------------------------------------------------------------------ theme */
+
+function initTheme() {
+  const stored = (function () {
+    try { return localStorage.getItem('theme'); } catch (e) { return null; }
+  })();
+  const prefersDark = window.matchMedia &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+  setTheme(stored || (prefersDark ? 'dark' : 'light'));
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  try { localStorage.setItem('theme', theme); } catch (e) {}
+  const btn = qs('#theme-toggle');
+  if (btn) {
+    btn.innerHTML = icon(theme === 'dark' ? 'sun' : 'moon', 15);
+    btn.setAttribute('aria-label',
+      theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+  }
+}
+
+function toggleTheme() {
+  setTheme(document.documentElement.getAttribute('data-theme') === 'dark'
+    ? 'light' : 'dark');
+}
+
+/* ------------------------------------------------------------------- boot */
+
+function boot() {
+  initTheme();
+
+  qsa('.nav-item').forEach(function (n) {
+    n.addEventListener('click', function () {
+      Router.go(n.getAttribute('data-route'));
+    });
+  });
+
+  const toggle = qs('#nav-toggle');
+  if (toggle) {
+    toggle.addEventListener('click', function () {
+      qs('.nav').classList.toggle('open');
+    });
+  }
+
+  qs('#theme-toggle').addEventListener('click', toggleTheme);
+
+  // Keyboard shortcuts: g then d/l/m/e/c, mirroring how operators actually work.
+  let pending = null;
+  document.addEventListener('keydown', function (e) {
+    if (e.target.matches('input, select, textarea')) return;
+    if (e.key === 'g') { pending = 'g'; setTimeout(function () { pending = null; }, 900); return; }
+    if (pending === 'g') {
+      const map = { d: 'dashboard', l: 'lob', m: 'metric', e: 'entry', c: 'config' };
+      if (map[e.key]) { Router.go(map[e.key]); pending = null; }
+    }
+  });
+
+  State.load().then(function () {
+    qs('#nav-user').textContent = State.user.email;
+    qs('#nav-role').textContent = State.user.role.toLowerCase();
+
+    if (!State.user.capabilities.includes('config')) {
+      const configItem = qs('[data-route=config]');
+      if (configItem) configItem.classList.add('hidden');
+    }
+
+    if (!State.initialised) {
+      showFirstRun();
+      return;
+    }
+    const hash = (location.hash || '').replace('#', '');
+    Router.go(hash || 'dashboard');
+  }).catch(function (err) {
+    qs('#content').innerHTML = '';
+    qs('#content').appendChild(emptyState(
+      'Could not start the application',
+      (err && err.message) || 'Unknown error. If this is a fresh deployment, run ' +
+      'first-time setup from the spreadsheet menu.'));
+  });
+}
+
+/**
+ * First run. Nothing is configured, so the only sensible screen is one that
+ * tells you what to do next — never an empty dashboard with zeroes in it.
+ */
+function showFirstRun() {
+  qs('#page-title').textContent = 'Welcome';
+  qs('#page-sub').textContent = 'A few minutes of setup and the platform is yours';
+  qs('#filters').classList.add('hidden');
+
+  const content = qs('#content');
+  content.innerHTML = '';
+
+  const canConfig = State.user.capabilities.includes('config');
+
+  const steps = [
+    ['Create your lines of business', 'Whatever operational units you report on.'],
+    ['Define your metrics', 'Each one declares a data type and a direction of ' +
+      'success. That is what lets a single engine handle CSAT, AHT, volume and ' +
+      'anything you add later.'],
+    ['Set targets', 'Effective-dated, so changing a goal never rewrites history.'],
+    ['Create reporting periods', 'Weekly, monthly, quarterly or custom — with ' +
+      'whatever labels your business already uses.'],
+    ['Start entering data', 'The form builds itself from the metric configuration.']
+  ];
+
+  const list = el('div', { class: 'stack' });
+  steps.forEach(function (s, i) {
+    list.appendChild(el('div', { class: 'card' }, [
+      el('div', { class: 'card-body row', style: 'gap:14px;align-items:flex-start' }, [
+        el('div', { style: 'width:26px;height:26px;border-radius:7px;background:' +
+          'var(--bg-sunken);display:grid;place-items:center;font-weight:660;' +
+          'font-size:12px;flex-shrink:0', text: String(i + 1) }),
+        el('div', {}, [
+          el('div', { style: 'font-weight:620', text: s[0] }),
+          el('div', { class: 'small muted', style: 'margin-top:2px', text: s[1] })
+        ])
+      ])
+    ]));
+  });
+
+  content.appendChild(el('div', { class: 'content-narrow' }, [
+    el('div', { class: 'card', style: 'margin-bottom:20px' }, [
+      el('div', { class: 'card-body' }, [
+        el('div', { style: 'font-size:17px;font-weight:650;letter-spacing:-.02em',
+          text: 'Nothing is configured yet' }),
+        el('div', { class: 'small muted', style: 'margin-top:6px;max-width:560px' ,
+          text: 'This platform ships with no metrics, no lines of business and no ' +
+                'periods built in — by design. Everything it measures is something ' +
+                'you define here, at runtime, and can change later without a code ' +
+                'change or a redeployment.' }),
+        canConfig ? el('div', { class: 'row', style: 'gap:8px;margin-top:16px' }, [
+          el('button', { class: 'btn btn-primary', text: 'Open configuration',
+            onclick: function () { Router.go('config'); }}),
+          el('button', { class: 'btn', text: 'Load a starter configuration',
+            onclick: function (e) {
+              e.target.disabled = true;
+              e.target.textContent = 'Setting up…';
+              API.call('app.seedStarter', {}).then(function (r) {
+                Toast.success('Starter configuration loaded',
+                  r.lobs + ' lines of business, ' + r.metrics + ' metrics, ' +
+                  r.periods + ' weekly periods. No performance data was invented.');
+                State.reload().then(function () { Router.go('config'); });
+              }).catch(function (err) {
+                e.target.disabled = false;
+                e.target.textContent = 'Load a starter configuration';
+                Toast.error('Could not load', err.message);
+              });
+            }})
+        ]) : el('div', { class: 'small muted', style: 'margin-top:14px',
+          text: 'Your role does not include configuration access. Ask an ' +
+                'administrator to set up the first metrics.' })
+      ])
+    ]),
+    el('div', { class: 'section-title', style: 'margin-top:0', text: 'Getting started' }),
+    list
+  ]));
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
+</script>

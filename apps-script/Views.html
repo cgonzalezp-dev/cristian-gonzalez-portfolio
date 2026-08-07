@@ -1,0 +1,1256 @@
+<script>
+/* ===========================================================================
+   Views.html — analytics screens and data entry.
+   Each view exports render(container, params) and owns its own loading state.
+   ========================================================================= */
+
+const Views = {};
+
+/* ========================================================================
+   EXECUTIVE DASHBOARD
+   ====================================================================== */
+
+Views.dashboard = {
+  title: 'Dashboard',
+  subtitle: 'Performance across every line of business',
+
+  render: function (root) {
+    root.innerHTML = '';
+    root.appendChild(skeletonGrid(4));
+
+    API.call('dash.executive', {
+      period_type: State.filters.period_type,
+      period_count: 8
+    }).then(function (data) {
+      root.innerHTML = '';
+
+      if (!data.cards.length) {
+        root.appendChild(emptyState(
+          'Nothing to report yet',
+          'Once metrics are configured and values submitted, this dashboard fills in ' +
+          'automatically. Start by adding a line of business and a metric.',
+          { label: 'Open configuration', onClick: function () { Router.go('config'); } }));
+        return;
+      }
+
+      root.appendChild(Views.dashboard.tiles(data));
+
+      root.appendChild(el('div', { class: 'section-title', text: 'What changed' }));
+      root.appendChild(el('div', { class: 'grid grid-2' }, [
+        Views.dashboard.moverCard('Biggest improvement', data.biggest_improvement, true),
+        Views.dashboard.moverCard('Biggest decline', data.biggest_decline, false)
+      ]));
+
+      root.appendChild(el('div', { class: 'section-title', text: 'Observations' }));
+      root.appendChild(el('div', { class: 'card' }, [insightList(data.insights)]));
+
+      root.appendChild(el('div', { class: 'section-title', text: 'All tracked metrics' }));
+      root.appendChild(Views.dashboard.table(data.cards));
+    }).catch(function (err) {
+      root.innerHTML = '';
+      root.appendChild(emptyState('Could not load the dashboard', err.message));
+    });
+  },
+
+  tiles: function (data) {
+    const c = data.counts;
+    function tile(label, value, context, tone) {
+      return el('div', { class: 'card' }, [
+        el('div', { class: 'kpi' }, [
+          el('div', { class: 'kpi-label', text: label }),
+          el('div', { class: 'kpi-value', text: value,
+            style: tone ? 'color:var(--' + tone + ')' : '' }),
+          context ? el('div', { class: 'kpi-context', text: context }) : null
+        ])
+      ]);
+    }
+    return el('div', { class: 'grid grid-4' }, [
+      tile('On target', String(c.on_target),
+           c.tracked + ' metrics tracked' +
+           (data.attainment_rate != null ? ' · ' + data.attainment_rate + '% attainment' : ''),
+           c.on_target ? 'positive' : null),
+      tile('Off target', String(c.off_target),
+           c.at_risk ? c.at_risk + ' more at risk' : 'Within thresholds elsewhere',
+           c.off_target ? 'negative' : null),
+      tile('Coverage', c.lobs + ' × ' + c.metrics,
+           'Lines of business × metrics' +
+           (c.no_target ? ' · ' + c.no_target + ' without a target' : '')),
+      tile('Best performing',
+           data.best_lob ? data.best_lob.lob_name : '—',
+           data.best_lob
+             ? data.best_lob.on_target + ' of ' + data.best_lob.measured + ' metrics on target'
+             : 'No scored metrics yet')
+    ]);
+  },
+
+  moverCard: function (title, card, positive) {
+    if (!card) {
+      return el('div', { class: 'card' }, [
+        el('div', { class: 'card-head' }, [
+          el('h3', { class: 'card-title', text: title })
+        ]),
+        el('div', { class: 'card-body muted small',
+          text: 'No reliable movement to report this period.' })
+      ]);
+    }
+    return el('div', { class: 'card' }, [
+      el('div', { class: 'card-head' }, [
+        el('div', {}, [
+          el('h3', { class: 'card-title', text: title }),
+          el('p', { class: 'card-sub',
+            text: (card.metric.display_name || card.metric.metric_name) +
+                  ' · ' + card.lob_name })
+        ])
+      ]),
+      el('div', { class: 'card-body' }, [
+        el('div', { class: 'row', style: 'gap:14px' }, [
+          el('div', { class: 'kpi-value', style: 'font-size:30px;margin:0',
+            text: card.current ? card.current.display : '—' }),
+          deltaChip(card.vs_prior, { withLabel: true })
+        ]),
+        card.vs_target ? el('div', { style: 'margin-top:10px' },
+          [statusPill(card.current.status)]) : null
+      ])
+    ]);
+  },
+
+  table: function (cards) {
+    const rows = cards.map(function (c) {
+      return {
+        lob: c.lob_name,
+        metric: c.metric.display_name || c.metric.metric_name,
+        metric_id: c.metric.metric_id,
+        lob_id: c.lob_id,
+        value: c.current ? c.current.value : null,
+        display: c.current ? c.current.display : '—',
+        status: c.current ? c.current.status : 'INSUFFICIENT_DATA',
+        target: c.current ? c.current.target : null,
+        unit: c.metric.unit,
+        dp: c.metric.decimal_places,
+        delta: c.vs_prior,
+        streak: c.streak,
+        point: c.current,
+        __lowSample: c.current && c.current.observation_count &&
+                     c.current.observation_count < 20
+      };
+    });
+
+    return el('div', { class: 'card' }, [dataTable([
+      { key: 'lob', label: 'Line of business' },
+      { key: 'metric', label: 'Metric' },
+      { key: 'display', label: 'Value', numeric: true,
+        sortValue: function (r) { return r.value; },
+        render: function (r) {
+          return el('span', { class: 'strong', text: r.display });
+        }},
+      { key: 'target', label: 'Target', numeric: true,
+        render: function (r) {
+          return r.target == null ? '—' : fmtValue(r.target, r.unit, r.dp);
+        }},
+      { key: 'status', label: 'Status', render: function (r) { return statusPill(r.status); }},
+      { key: 'delta', label: 'Change', numeric: true,
+        sortValue: function (r) { return r.delta ? r.delta.absolute_change : null; },
+        render: function (r) { return deltaChip(r.delta); }},
+      { key: 'streak', label: 'Run', sortable: false,
+        render: function (r) {
+          if (!r.streak || r.streak.length < 2) return '—';
+          const word = r.streak.direction === 'IMPROVED' ? 'up'
+                     : r.streak.direction === 'DECLINED' ? 'down' : 'flat';
+          return el('span', { class: 'tiny muted',
+            text: r.streak.length + ' periods ' + word });
+        }},
+      { key: 'n', label: 'Sample', numeric: true, sortable: false,
+        render: function (r) { return provenanceBadges(r.point, null); }}
+    ], rows, {
+      sortKey: 'lob',
+      emptyText: 'No measured metrics yet.',
+      onRowClick: function (r) {
+        Router.go('metric', { metric_id: r.metric_id, lob_id: r.lob_id });
+      }
+    })]);
+  }
+};
+
+/* ========================================================================
+   LOB PERFORMANCE
+   ====================================================================== */
+
+Views.lob = {
+  title: 'LOB Performance',
+  subtitle: 'Every metric for one line of business',
+
+  render: function (root, params) {
+    root.innerHTML = '';
+    const lobId = (params && params.lob_id) || State.filters.lob_id ||
+                  (State.lobs[0] && State.lobs[0].lob_id);
+    if (!lobId) {
+      root.appendChild(emptyState('No lines of business yet',
+        'Create one in Configuration to start tracking performance.',
+        { label: 'Open configuration', onClick: function () { Router.go('config'); } }));
+      return;
+    }
+    root.appendChild(skeletonGrid(3, 'grid-3'));
+
+    API.call('dash.lob', {
+      lob_id: lobId,
+      period_type: State.filters.period_type,
+      period_count: State.filters.period_count
+    }).then(function (data) {
+      root.innerHTML = '';
+
+      const s = data.summary;
+      root.appendChild(el('div', { class: 'card', style: 'margin-bottom:18px' }, [
+        el('div', { class: 'card-body row', style: 'gap:28px;flex-wrap:wrap' }, [
+          Views.lob.stat('Metrics tracked', s.measured + ' of ' + s.total),
+          Views.lob.stat('On target', String(s.on_target),
+                         s.on_target ? 'positive' : null),
+          Views.lob.stat('Improving', String(s.improving), 'positive'),
+          Views.lob.stat('Declining', String(s.declining),
+                         s.declining ? 'negative' : null),
+          Views.lob.stat('Held steady', String(s.stable))
+        ])
+      ]));
+
+      if (!data.cards.length) {
+        root.appendChild(emptyState('No metrics assigned',
+          'Assign metrics to this line of business in Configuration → Metrics.'));
+        return;
+      }
+
+      const grid = el('div', { class: 'grid grid-3' });
+      data.cards.forEach(function (card) { grid.appendChild(Views.lob.card(card)); });
+      root.appendChild(grid);
+    }).catch(function (err) {
+      root.innerHTML = '';
+      root.appendChild(emptyState('Could not load this line of business', err.message));
+    });
+  },
+
+  stat: function (label, value, tone) {
+    return el('div', {}, [
+      el('div', { class: 'kpi-label', text: label }),
+      el('div', { style: 'font-size:24px;font-weight:660;letter-spacing:-.03em;margin-top:4px' +
+        (tone ? ';color:var(--' + tone + ')' : ''), text: value })
+    ]);
+  },
+
+  card: function (card) {
+    const metric = card.metric;
+    const body = el('div', { class: 'card-body' });
+
+    if (card.empty || !card.current) {
+      body.appendChild(el('div', { class: 'muted small',
+        text: 'No values submitted for the selected periods.' }));
+    } else {
+      body.appendChild(el('div', { class: 'kpi-value', style: 'margin:0',
+        text: card.current.display }));
+      body.appendChild(el('div', { class: 'kpi-meta' }, [
+        deltaChip(card.vs_prior),
+        statusPill(card.current.status),
+        provenanceBadges(card.current, metric)
+      ]));
+      body.appendChild(Charts.sparkline(card.sparkline, metric.direction_of_success));
+      if (card.current.target != null) {
+        body.appendChild(el('div', { class: 'tiny subtle',
+          text: 'Target ' + fmtValue(card.current.target, metric.unit,
+                                     metric.decimal_places) }));
+      }
+    }
+
+    return el('div', { class: 'card', style: 'cursor:pointer',
+      onclick: function () { Router.go('metric', { metric_id: metric.metric_id }); }
+    }, [
+      el('div', { class: 'card-head' }, [
+        el('div', {}, [
+          el('h3', { class: 'card-title',
+            text: metric.display_name || metric.metric_name }),
+          el('p', { class: 'card-sub',
+            text: metric.category || metric.definition || '' })
+        ])
+      ]),
+      body
+    ]);
+  }
+};
+
+/* ========================================================================
+   METRIC PERFORMANCE
+   ====================================================================== */
+
+Views.metric = {
+  title: 'Metric Performance',
+  subtitle: 'Trend, target and comparison for one metric',
+
+  render: function (root, params) {
+    root.innerHTML = '';
+    const metricId = (params && params.metric_id) || State.filters.metric_id ||
+                     (State.metrics[0] && State.metrics[0].metric_id);
+    if (!metricId) {
+      root.appendChild(emptyState('No metrics configured',
+        'Create a metric in Configuration to begin.',
+        { label: 'Open configuration', onClick: function () { Router.go('config'); } }));
+      return;
+    }
+    root.appendChild(skeletonGrid(2, 'grid-2'));
+
+    const lobId = (params && params.lob_id) || State.filters.lob_id || '';
+    const seriesParams = {
+      metric_id: metricId,
+      subject_type: lobId ? 'LOB' : 'GLOBAL',
+      subject_id: lobId,
+      period_type: State.filters.period_type,
+      period_count: State.filters.period_count
+    };
+
+    Promise.all([
+      API.call('dash.metricSeries', seriesParams),
+      API.call('dash.compare', {
+        metric_id: metricId, subject_type: 'LOB',
+        period_type: State.filters.period_type
+      })
+    ]).then(function (results) {
+      const s = results[0], c = results[1];
+      root.innerHTML = '';
+
+      const metric = s.metric;
+
+      // Definition panel. The Phase 1 analysis found not one metric in the
+      // source material had a written definition, which is how four different
+      // denominators ended up in one document. It is shown, always.
+      root.appendChild(el('div', { class: 'card', style: 'margin-bottom:18px' }, [
+        el('div', { class: 'card-body' }, [
+          el('div', { class: 'row-between' }, [
+            el('div', {}, [
+              el('div', { style: 'font-size:16px;font-weight:640;letter-spacing:-.02em',
+                text: metric.display_name || metric.metric_name }),
+              metric.definition
+                ? el('div', { class: 'small muted', style: 'margin-top:4px',
+                    text: metric.definition })
+                : el('div', { class: 'small subtle', style: 'margin-top:4px',
+                    text: 'No definition recorded for this metric.' })
+            ]),
+            el('div', { class: 'row', style: 'gap:6px' }, [
+              el('span', { class: 'badge', text: metric.data_type.replace(/_/g, ' ') }),
+              el('span', { class: 'badge',
+                text: metric.direction_of_success === 'HIGHER_IS_BETTER' ? 'higher is better'
+                    : metric.direction_of_success === 'LOWER_IS_BETTER' ? 'lower is better'
+                    : 'target based' }),
+              el('span', { class: 'badge',
+                text: String(metric.aggregation_rule || '').toLowerCase().replace(/_/g, ' '),
+                title: 'How child values roll up into this one.' }),
+              metric.instrument
+                ? el('span', { class: 'badge', text: metric.instrument,
+                    title: 'Measurement instrument. Two instruments measuring the ' +
+                           'same concept are different metrics.' })
+                : null
+            ])
+          ])
+        ])
+      ]));
+
+      // KPI row
+      root.appendChild(el('div', { class: 'grid grid-4', style: 'margin-bottom:18px' }, [
+        Views.metric.kpi('Current', s.current ? s.current.display : '—',
+          s.current ? s.current.period_label : '', s.current, metric),
+        Views.metric.deltaKpi('Versus previous period', s.vs_prior),
+        Views.metric.deltaKpi('Versus target', s.vs_target),
+        Views.metric.trendKpi(s)
+      ]));
+
+      // Trend chart
+      const chartPayload = {
+        chart: { chart_id: 'inline', title: metric.display_name || metric.metric_name,
+                 chart_type: 'LINE', show_target_line: true, show_data_labels: false,
+                 subtitle: '', footer: '', y_min: null, y_max: null },
+        labels: s.series.map(function (p) { return p.period_label; }),
+        series: [{
+          name: metric.display_name || metric.metric_name,
+          unit: metric.unit, decimal_places: metric.decimal_places,
+          points: s.series.map(function (p) {
+            return { label: p.period_label, value: p.value, display: p.display,
+                     status: p.status, n: p.observation_count, missing: p.missing };
+          }),
+          target: (function () {
+            const t = s.series.map(function (p) { return p.target; })
+                              .filter(function (x) { return x != null; });
+            if (!t.length) return null;
+            const uniq = t.filter(function (v, i, a) { return a.indexOf(v) === i; });
+            return uniq.length === 1
+              ? { constant: uniq[0] }
+              : { steps: s.series.map(function (p) { return p.target; }) };
+          })(),
+          current: s.current, vs_prior: s.vs_prior, vs_target: s.vs_target
+        }],
+        benchmark: null,
+        metric: metric,
+        empty: s.empty
+      };
+
+      root.appendChild(el('div', { class: 'card chart-card', style: 'margin-bottom:18px' }, [
+        el('div', { class: 'card-head' }, [
+          el('div', {}, [
+            el('h3', { class: 'card-title', text: 'Trend' }),
+            el('p', { class: 'card-sub',
+              text: s.series.length + ' periods · ' +
+                    State.filters.period_type.toLowerCase() })
+          ])
+        ]),
+        el('div', { class: 'card-body' },
+          [Charts.render(chartPayload, { width: 900, height: 260 })])
+      ]));
+
+      // Insights
+      root.appendChild(el('div', { class: 'section-title', text: 'Observations' }));
+      root.appendChild(el('div', { class: 'card', style: 'margin-bottom:18px' },
+        [insightList(s.insights)]));
+
+      // LOB comparison
+      if (!c.empty) {
+        root.appendChild(el('div', { class: 'section-title',
+          text: 'By line of business — ' + c.period.period_label }));
+        root.appendChild(Views.metric.comparison(c));
+      }
+
+      // Period table
+      root.appendChild(el('div', { class: 'section-title', text: 'Period detail' }));
+      root.appendChild(Views.metric.periodTable(s));
+    }).catch(function (err) {
+      root.innerHTML = '';
+      root.appendChild(emptyState('Could not load this metric', err.message));
+    });
+  },
+
+  kpi: function (label, value, context, point, metric) {
+    return el('div', { class: 'card' }, [
+      el('div', { class: 'kpi' }, [
+        el('div', { class: 'kpi-label', text: label }),
+        el('div', { class: 'kpi-value', text: value }),
+        el('div', { class: 'kpi-meta' },
+          [point ? provenanceBadges(point, metric) : null]),
+        context ? el('div', { class: 'kpi-context', text: context }) : null
+      ])
+    ]);
+  },
+
+  deltaKpi: function (label, delta) {
+    const value = delta && delta.interpretation !== 'INSUFFICIENT_DATA'
+      ? delta.display : '—';
+    const tone = !delta ? null
+      : delta.interpretation === 'IMPROVED' ? 'positive'
+      : delta.interpretation === 'DECLINED' ? 'negative' : null;
+    return el('div', { class: 'card' }, [
+      el('div', { class: 'kpi' }, [
+        el('div', { class: 'kpi-label', text: label }),
+        el('div', { class: 'kpi-value', text: value,
+          style: tone ? 'color:var(--' + tone + ')' : '' }),
+        el('div', { class: 'kpi-context',
+          text: delta && delta.direction_label ? delta.direction_label : '' }),
+        delta && delta.reliable === false
+          ? el('div', { class: 'kpi-meta' },
+              [el('span', { class: 'badge badge-warn', text: 'low sample' })])
+          : null
+      ])
+    ]);
+  },
+
+  trendKpi: function (s) {
+    const t = s.trend || {};
+    const word = { IMPROVED: 'Improving', DECLINED: 'Declining', STABLE: 'Stable',
+                   INSUFFICIENT_DATA: 'Not enough data' }[t.trend] || '—';
+    const tone = t.trend === 'IMPROVED' ? 'positive'
+               : t.trend === 'DECLINED' ? 'negative' : null;
+    const streak = s.streak && s.streak.length >= 2
+      ? s.streak.length + ' consecutive periods' : '';
+    return el('div', { class: 'card' }, [
+      el('div', { class: 'kpi' }, [
+        el('div', { class: 'kpi-label', text: 'Direction' }),
+        el('div', { class: 'kpi-value', style: 'font-size:26px' +
+          (tone ? ';color:var(--' + tone + ')' : ''), text: word }),
+        el('div', { class: 'kpi-context', text: streak })
+      ])
+    ]);
+  },
+
+  comparison: function (c) {
+    const metric = c.metric;
+    const stats = c.stats;
+
+    const header = el('div', { class: 'card-body row',
+      style: 'gap:24px;flex-wrap:wrap;border-bottom:1px solid var(--border)' }, [
+      Views.lob.stat('Overall',
+        fmtValue(stats.population_value, metric.unit, metric.decimal_places)),
+      Views.lob.stat('Average of subjects',
+        fmtValue(stats.mean, metric.unit, metric.decimal_places)),
+      Views.lob.stat('Median',
+        fmtValue(stats.median, metric.unit, metric.decimal_places)),
+      Views.lob.stat('Subjects', String(stats.eligible_count))
+    ]);
+
+    // Overall vs average of subjects diverge whenever sample sizes differ. Both
+    // are shown, labelled, because they are routinely mistaken for each other.
+    const note = el('div', { class: 'card-foot',
+      text: stats.is_weighted
+        ? 'Overall is the weighted figure (sum of numerators ÷ sum of denominators) — ' +
+          'what the business delivered. The average of subjects treats every subject ' +
+          'equally regardless of volume.'
+        : 'Denominators are missing, so the overall figure is an unweighted average. ' +
+          'Subjects with different volumes carry equal weight.' });
+
+    const table = dataTable([
+      { key: 'rank', label: '#', numeric: true, sortable: false,
+        render: function (r) {
+          return el('span', { class: 'rank-cell', text: r.rank == null ? '—' : r.rank });
+        }},
+      { key: 'subject_name', label: 'Line of business' },
+      { key: 'display', label: 'Value', numeric: true,
+        sortValue: function (r) { return r.value; },
+        render: function (r) { return el('span', { class: 'strong', text: r.display }); }},
+      { key: 'target', label: 'Target', numeric: true,
+        render: function (r) {
+          return r.target == null ? '—' : fmtValue(r.target, metric.unit,
+                                                   metric.decimal_places);
+        }},
+      { key: 'status', label: 'Status',
+        render: function (r) { return statusPill(r.status); }},
+      { key: 'delta', label: 'Change', numeric: true,
+        sortValue: function (r) { return r.delta ? r.delta.absolute_change : null; },
+        render: function (r) { return deltaChip(r.delta); }},
+      { key: 'n', label: 'Sample', numeric: true, sortable: false,
+        render: function (r) {
+          return provenanceBadges({ observation_count: r.observation_count,
+                                    is_weighted: r.is_weighted,
+                                    contributor_count: r.contributor_count }, metric);
+        }}
+    ], c.rows.concat(c.excluded || []), {
+      sortKey: 'rank',
+      emptyText: 'No values for this period.'
+    });
+
+    const card = el('div', { class: 'card' }, [header, table, note]);
+    if (c.insights && c.insights.length) {
+      card.appendChild(insightList(c.insights));
+    }
+    return card;
+  },
+
+  periodTable: function (s) {
+    const metric = s.metric;
+    const rows = s.series.slice().reverse();
+    return el('div', { class: 'card' }, [dataTable([
+      { key: 'period_label', label: 'Period' },
+      { key: 'period_start', label: 'Dates', sortable: false,
+        render: function (r) {
+          return el('span', { class: 'tiny muted',
+            text: r.period_start + ' → ' + r.period_end });
+        }},
+      { key: 'display', label: 'Value', numeric: true,
+        sortValue: function (r) { return r.value; },
+        render: function (r) {
+          return el('span', { class: r.missing ? 'subtle' : 'strong',
+            text: r.missing ? 'no data' : r.display });
+        }},
+      { key: 'numerator', label: metric.numerator_label || 'Numerator', numeric: true,
+        render: function (r) { return r.numerator == null ? '—' : fmtNumber(r.numerator); }},
+      { key: 'denominator', label: metric.denominator_label || 'Denominator', numeric: true,
+        render: function (r) {
+          return r.denominator == null ? '—' : fmtNumber(r.denominator);
+        }},
+      { key: 'target', label: 'Target', numeric: true,
+        render: function (r) {
+          return r.target == null ? '—' : fmtValue(r.target, metric.unit,
+                                                   metric.decimal_places);
+        }},
+      { key: 'status', label: 'Status',
+        render: function (r) {
+          return r.missing ? el('span', { class: 'tiny subtle', text: '—' })
+                           : statusPill(r.status);
+        }}
+    ], rows, { sortKey: 'period_start', sortDir: -1 })]);
+  }
+};
+
+/* ========================================================================
+   DATA ENTRY
+   The form has no hardcoded metric fields. Which inputs appear, what they are
+   called, what range they accept and whether a denominator is required all
+   come from the metric's configuration.
+   ====================================================================== */
+
+Views.entry = {
+  title: 'Data Entry',
+  subtitle: 'Submit measured values',
+
+  draftKey: function (p) {
+    return 'draft:' + [p.subject_type, p.subject_id, p.metric_id, p.period_id].join('|');
+  },
+
+  render: function (root) {
+    root.innerHTML = '';
+    const wrap = el('div', { class: 'content-narrow' });
+    root.appendChild(wrap);
+
+    wrap.appendChild(el('div', { class: 'tabs' }, [
+      el('button', { class: 'tab active', text: 'Single entry',
+        onclick: function (e) { Views.entry.tab(e, wrap, 'single'); }}),
+      el('button', { class: 'tab', text: 'Bulk entry',
+        onclick: function (e) { Views.entry.tab(e, wrap, 'bulk'); }}),
+      el('button', { class: 'tab', text: 'Recent submissions',
+        onclick: function (e) { Views.entry.tab(e, wrap, 'recent'); }})
+    ]));
+
+    const panel = el('div', { id: 'entry-panel' });
+    wrap.appendChild(panel);
+    Views.entry.single(panel);
+  },
+
+  tab: function (e, wrap, which) {
+    qsa('.tab', wrap).forEach(function (t) { t.classList.remove('active'); });
+    e.target.classList.add('active');
+    const panel = qs('#entry-panel', wrap);
+    panel.innerHTML = '';
+    if (which === 'single') Views.entry.single(panel);
+    else if (which === 'bulk') Views.entry.bulk(panel);
+    else Views.entry.recent(panel);
+  },
+
+  /* ---------------------------------------------------------- single */
+
+  single: function (panel) {
+    const state = {
+      subject_type: 'LOB', subject_id: '', metric_id: '',
+      period_type: State.filters.period_type, period_id: ''
+    };
+
+    const card = el('div', { class: 'card' });
+    const body = el('div', { class: 'card-body' });
+    card.appendChild(el('div', { class: 'card-head' }, [
+      el('div', {}, [
+        el('h3', { class: 'card-title', text: 'Submit a value' }),
+        el('p', { class: 'card-sub',
+          text: 'The form builds itself from the selected metric\'s configuration.' })
+      ])
+    ]));
+    card.appendChild(body);
+    panel.appendChild(card);
+
+    const context = el('div', { class: 'form-grid' });
+    body.appendChild(context);
+
+    // Subject type
+    context.appendChild(selectField({
+      label: 'This value is about', id: 'subject_type', value: state.subject_type,
+      options: [
+        { value: 'LOB', label: 'A line of business' },
+        { value: 'AGENT', label: 'An individual agent' },
+        { value: 'TEAM', label: 'A team' },
+        { value: 'MANAGER', label: 'A manager\'s group' },
+        { value: 'REGION', label: 'A region' },
+        { value: 'COHORT', label: 'A benchmark cohort' },
+        { value: 'GLOBAL', label: 'The whole organisation' }
+      ],
+      onChange: function (v) { state.subject_type = v; state.subject_id = ''; refresh(); }
+    }));
+
+    const subjectSlot = el('div', { id: 'subject-slot' });
+    context.appendChild(subjectSlot);
+
+    const metricSlot = el('div', { id: 'metric-slot' });
+    context.appendChild(metricSlot);
+
+    context.appendChild(selectField({
+      label: 'Reporting frequency', id: 'period_type', value: state.period_type,
+      options: State.enums.periodTypes.map(function (p) {
+        return { value: p, label: p.charAt(0) + p.slice(1).toLowerCase() };
+      }),
+      onChange: function (v) { state.period_type = v; state.period_id = ''; refresh(); }
+    }));
+
+    const periodSlot = el('div', { id: 'period-slot' });
+    context.appendChild(periodSlot);
+
+    const dynamic = el('div', { id: 'dynamic-fields' });
+    body.appendChild(el('div', { class: 'divider' }));
+    body.appendChild(dynamic);
+
+    const actions = el('div', { class: 'row', style: 'gap:8px;margin-top:8px' });
+    body.appendChild(actions);
+
+    function subjectOptions() {
+      const map = {
+        LOB: State.lobs.map(function (l) {
+          return { value: l.lob_id, label: l.lob_name }; }),
+        AGENT: State.dims.agent.map(function (a) {
+          return { value: a.agent_id, label: a.agent_name }; }),
+        TEAM: State.dims.team.map(function (t) {
+          return { value: t.team_id, label: t.team_name }; }),
+        MANAGER: State.dims.manager.map(function (m) {
+          return { value: m.manager_id, label: m.manager_name }; }),
+        REGION: State.dims.region.map(function (r) {
+          return { value: r.region_id, label: r.region_name }; }),
+        COHORT: State.dims.cohort.map(function (c) {
+          return { value: c.cohort_id, label: c.cohort_name }; }),
+        GLOBAL: []
+      };
+      return map[state.subject_type] || [];
+    }
+
+    function refresh() {
+      // Subject
+      subjectSlot.innerHTML = '';
+      if (state.subject_type !== 'GLOBAL') {
+        const opts = subjectOptions();
+        subjectSlot.appendChild(selectField({
+          label: 'Subject', id: 'subject_id', value: state.subject_id,
+          placeholder: opts.length ? 'Select…' : 'None configured',
+          options: opts,
+          onChange: function (v) { state.subject_id = v; loadForm(); }
+        }));
+      }
+
+      // Metric — filtered to the LOB when one is selected
+      metricSlot.innerHTML = '';
+      const lobFilter = state.subject_type === 'LOB' ? state.subject_id : '';
+      const metrics = lobFilter
+        ? State.metrics.filter(function (m) {
+            return !m.lob_ids.length || m.lob_ids.indexOf(lobFilter) >= 0;
+          })
+        : State.metrics;
+      metricSlot.appendChild(selectField({
+        label: 'Metric', id: 'metric_id', value: state.metric_id,
+        placeholder: metrics.length ? 'Select…' : 'No metrics configured',
+        options: metrics.map(function (m) {
+          return { value: m.metric_id, label: m.display_name || m.metric_name };
+        }),
+        onChange: function (v) { state.metric_id = v; loadForm(); }
+      }));
+
+      // Period
+      periodSlot.innerHTML = '';
+      const periods = State.periods.filter(function (p) {
+        return p.period_type === state.period_type;
+      }).slice().reverse();
+      periodSlot.appendChild(selectField({
+        label: 'Period', id: 'period_id', value: state.period_id,
+        placeholder: periods.length ? 'Select…' : 'No periods defined',
+        options: periods.map(function (p) {
+          return { value: p.period_id,
+                   label: p.period_label + '  (' + p.start_date + ' → ' + p.end_date + ')' };
+        }),
+        onChange: function (v) { state.period_id = v; loadForm(); }
+      }));
+
+      loadForm();
+    }
+
+    function loadForm() {
+      dynamic.innerHTML = '';
+      actions.innerHTML = '';
+      if (!state.metric_id) {
+        dynamic.appendChild(el('div', { class: 'muted small',
+          text: 'Select a metric to continue.' }));
+        return;
+      }
+
+      dynamic.appendChild(el('div', { class: 'skeleton skel-line', style: 'width:40%' }));
+
+      API.call('data.formConfig', {
+        metric_id: state.metric_id, subject_type: state.subject_type,
+        subject_id: state.subject_id, period_id: state.period_id
+      }).then(function (cfg) {
+        dynamic.innerHTML = '';
+        const metric = cfg.metric;
+
+        if (metric.definition) {
+          dynamic.appendChild(el('div', { class: 'field-hint',
+            style: 'margin-bottom:12px;padding:9px 11px;background:var(--bg-sunken);' +
+                   'border-radius:6px',
+            text: metric.definition }));
+        }
+
+        // Existing value warning — resubmitting supersedes rather than duplicates.
+        if (cfg.existing) {
+          dynamic.appendChild(el('div', { class: 'insight insight-WARNING',
+            style: 'margin-bottom:12px' }, [
+            el('span', { class: 'insight-icon', html: icon('alert', 14) }),
+            el('span', { text: 'A value of ' + cfg.existing.display +
+              ' already exists for this combination, submitted by ' +
+              cfg.existing.updated_by + '. Saving will replace it.' })
+          ]));
+        }
+
+        const grid = el('div', { class: 'form-grid' });
+        dynamic.appendChild(grid);
+
+        const numField = cfg.fields.filter(function (f) {
+          return f.key === 'numerator'; })[0];
+        const denField = cfg.fields.filter(function (f) {
+          return f.key === 'denominator'; })[0];
+        const valField = cfg.fields.filter(function (f) { return f.key === 'value'; })[0];
+
+        function recompute() {
+          if (!numField || !denField) return;
+          const n = parseFloat(qs('#numerator', dynamic).value);
+          const d = parseFloat(qs('#denominator', dynamic).value);
+          const out = qs('#value', dynamic);
+          if (isFinite(n) && isFinite(d) && d !== 0) {
+            const v = metric.data_type === 'PROPORTION' ? (n / d) * 100 : n / d;
+            out.value = v.toFixed(metric.decimal_places || 1);
+            preview(v, d);
+          } else {
+            out.value = '';
+            preview(null, null);
+          }
+        }
+
+        if (numField) {
+          grid.appendChild(inputField({
+            label: numField.label, id: 'numerator', type: 'number', step: 'any',
+            required: numField.required, hint: numField.hint,
+            value: cfg.existing ? cfg.existing.numerator : '',
+            onInput: recompute
+          }));
+        }
+        if (denField) {
+          grid.appendChild(inputField({
+            label: denField.label, id: 'denominator', type: 'number', step: 'any',
+            required: denField.required, hint: denField.hint,
+            value: cfg.existing ? cfg.existing.denominator : '',
+            onInput: recompute
+          }));
+        }
+        grid.appendChild(inputField({
+          label: valField.label, id: 'value', type: 'number', step: 'any',
+          required: valField.required, readonly: valField.readonly,
+          hint: valField.hint, min: valField.min, max: valField.max,
+          value: cfg.existing ? cfg.existing.value : ''
+        }));
+
+        // Resolved target, read-only, with the scope it came from — so nobody
+        // has to guess which of six possible targets applied.
+        const targetBox = el('div', { class: 'field' }, [
+          el('label', { class: 'field-label', text: 'Target (resolved)' }),
+          el('input', { class: 'input', readonly: 'readonly', id: 'target-display',
+            value: cfg.target
+              ? fmtValue(cfg.target.target_value, metric.unit, metric.decimal_places)
+              : 'No target configured' }),
+          el('div', { class: 'field-hint',
+            text: cfg.target
+              ? 'From the ' + cfg.target.scope_type.toLowerCase() +
+                ' level target, effective ' + cfg.target.valid_from + '.'
+              : 'This value will be stored but cannot be scored against a goal.' })
+        ]);
+        grid.appendChild(targetBox);
+
+        dynamic.appendChild(inputField({
+          label: 'Comments', id: 'comments', type: 'textarea',
+          value: cfg.existing ? cfg.existing.comments : '',
+          placeholder: 'Context for anyone reading this number later (optional)'
+        }));
+
+        const previewBox = el('div', { id: 'entry-preview', class: 'kpi-meta',
+          style: 'margin-bottom:12px' });
+        dynamic.appendChild(previewBox);
+
+        function preview(value, denominator) {
+          previewBox.innerHTML = '';
+          if (value == null) return;
+          const status = cfg.target
+            ? evaluateStatus(metric, value, cfg.target) : 'NO_TARGET';
+          previewBox.appendChild(el('span', { class: 'small muted',
+            text: 'Will be stored as ' +
+                  fmtValue(value, metric.unit, metric.decimal_places) }));
+          previewBox.appendChild(statusPill(status));
+          if (denominator != null && denominator < 20) {
+            previewBox.appendChild(el('span', { class: 'badge badge-warn',
+              text: 'n=' + denominator + ' below threshold' }));
+          }
+        }
+
+        // Actions
+        actions.appendChild(el('button', {
+          class: 'btn btn-primary', text: 'Submit',
+          onclick: function (e) { submit(e.target, metric); }
+        }));
+        actions.appendChild(el('button', {
+          class: 'btn', text: 'Save draft',
+          onclick: function () { saveDraft(); }
+        }));
+        actions.appendChild(el('span', { class: 'tiny subtle', id: 'draft-note' }));
+
+        restoreDraft();
+        recompute();
+      }).catch(function (err) {
+        dynamic.innerHTML = '';
+        dynamic.appendChild(el('div', { class: 'field-error', text: err.message }));
+      });
+    }
+
+    function evaluateStatus(metric, value, target) {
+      const t = target.target_value;
+      if (t == null) return 'NO_TARGET';
+      if (metric.direction_of_success === 'HIGHER_IS_BETTER') {
+        if (value >= t) return 'ON_TARGET';
+        if (target.min_threshold != null && value >= target.min_threshold) return 'AT_RISK';
+        return 'BELOW_TARGET';
+      }
+      if (metric.direction_of_success === 'LOWER_IS_BETTER') {
+        if (value <= t) return 'ON_TARGET';
+        if (target.max_threshold != null && value <= target.max_threshold) return 'AT_RISK';
+        return 'ABOVE_TARGET';
+      }
+      const lo = target.min_threshold != null ? target.min_threshold : t;
+      const hi = target.max_threshold != null ? target.max_threshold : t;
+      if (value < lo) return 'BELOW_TARGET';
+      if (value > hi) return 'ABOVE_TARGET';
+      return 'ON_TARGET';
+    }
+
+    function payload() {
+      const f = readForm(dynamic, ['numerator', 'denominator', 'value', 'comments']);
+      return {
+        subject_type: state.subject_type, subject_id: state.subject_id,
+        metric_id: state.metric_id, period_id: state.period_id,
+        numerator: f.numerator, denominator: f.denominator,
+        value: f.value, comments: f.comments
+      };
+    }
+
+    /* Autosave: a draft survives a reload, a lost connection or a mis-click. */
+    function saveDraft() {
+      try {
+        localStorage.setItem(Views.entry.draftKey(state), JSON.stringify(payload()));
+        const note = qs('#draft-note', dynamic.parentNode);
+        if (note) note.textContent = 'Draft saved ' +
+          new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      } catch (e) { /* private browsing — drafts are a convenience, not a contract */ }
+    }
+
+    function restoreDraft() {
+      try {
+        const raw = localStorage.getItem(Views.entry.draftKey(state));
+        if (!raw) return;
+        const d = JSON.parse(raw);
+        ['numerator', 'denominator', 'value', 'comments'].forEach(function (k) {
+          const node = qs('#' + k, dynamic);
+          if (node && d[k] != null && d[k] !== '') node.value = d[k];
+        });
+      } catch (e) { /* ignore */ }
+    }
+
+    let autosaveTimer = null;
+    dynamic.addEventListener('input', function () {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(saveDraft, 900);
+    });
+
+    function submit(button, metric) {
+      button.disabled = true;
+      button.textContent = 'Saving…';
+      API.call('data.submit', payload()).then(function (res) {
+        button.disabled = false;
+        button.textContent = 'Submit';
+        try { localStorage.removeItem(Views.entry.draftKey(state)); } catch (e) {}
+
+        const value = fmtValue(res.fact.value, metric.unit, metric.decimal_places);
+        Toast.success(res.superseded ? 'Value replaced' : 'Value saved',
+          (metric.display_name || metric.metric_name) + ' recorded as ' + value + '.');
+
+        (res.warnings || []).forEach(function (w) { Toast.warn('Data quality', w.message); });
+
+        ['numerator', 'denominator', 'value', 'comments'].forEach(function (k) {
+          const node = qs('#' + k, dynamic);
+          if (node && !node.readOnly) node.value = '';
+        });
+        const val = qs('#value', dynamic);
+        if (val) val.value = '';
+        const first = qs('#numerator', dynamic) || qs('#value', dynamic);
+        if (first) first.focus();
+      }).catch(function (err) {
+        button.disabled = false;
+        button.textContent = 'Submit';
+        Toast.error('Not saved', err.message);
+      });
+    }
+
+    // Keyboard: Cmd/Ctrl+Enter submits from anywhere in the form.
+    body.addEventListener('keydown', function (e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        const btn = qs('.btn-primary', actions);
+        if (btn) btn.click();
+      }
+    });
+
+    refresh();
+  },
+
+  /* ------------------------------------------------------------ bulk */
+
+  bulk: function (panel) {
+    const card = el('div', { class: 'card' });
+    card.appendChild(el('div', { class: 'card-head' }, [
+      el('div', {}, [
+        el('h3', { class: 'card-title', text: 'Bulk entry' }),
+        el('p', { class: 'card-sub',
+          text: 'One metric, one period, many subjects. Paste from a spreadsheet ' +
+                'or type directly.' })
+      ])
+    ]));
+    const body = el('div', { class: 'card-body' });
+    card.appendChild(body);
+    panel.appendChild(card);
+
+    const state = { metric_id: '', period_id: '', period_type: State.filters.period_type,
+                    subject_type: 'AGENT' };
+
+    const controls = el('div', { class: 'form-grid' });
+    body.appendChild(controls);
+
+    controls.appendChild(selectField({
+      label: 'Subject type', id: 'bulk_subject_type', value: state.subject_type,
+      options: [
+        { value: 'AGENT', label: 'Agents' },
+        { value: 'LOB', label: 'Lines of business' },
+        { value: 'TEAM', label: 'Teams' }
+      ],
+      onChange: function (v) { state.subject_type = v; buildGrid(); }
+    }));
+    controls.appendChild(selectField({
+      label: 'Metric', id: 'bulk_metric', value: state.metric_id, placeholder: 'Select…',
+      options: State.metrics.map(function (m) {
+        return { value: m.metric_id, label: m.display_name || m.metric_name };
+      }),
+      onChange: function (v) { state.metric_id = v; buildGrid(); }
+    }));
+    controls.appendChild(selectField({
+      label: 'Reporting frequency', id: 'bulk_ptype', value: state.period_type,
+      options: State.enums.periodTypes.map(function (p) {
+        return { value: p, label: p.charAt(0) + p.slice(1).toLowerCase() };
+      }),
+      onChange: function (v) { state.period_type = v; state.period_id = ''; buildGrid(); }
+    }));
+    const periodSlot = el('div');
+    controls.appendChild(periodSlot);
+
+    const gridSlot = el('div', { style: 'margin-top:14px' });
+    body.appendChild(gridSlot);
+
+    function renderPeriodSelect() {
+      periodSlot.innerHTML = '';
+      const periods = State.periods.filter(function (p) {
+        return p.period_type === state.period_type;
+      }).slice().reverse();
+      periodSlot.appendChild(selectField({
+        label: 'Period', id: 'bulk_period', value: state.period_id, placeholder: 'Select…',
+        options: periods.map(function (p) {
+          return { value: p.period_id, label: p.period_label };
+        }),
+        onChange: function (v) { state.period_id = v; buildGrid(); }
+      }));
+    }
+
+    function subjects() {
+      if (state.subject_type === 'AGENT') {
+        return State.dims.agent.map(function (a) {
+          return { id: a.agent_id, name: a.agent_name,
+                   context: State.lobName(a.lob_id) };
+        });
+      }
+      if (state.subject_type === 'TEAM') {
+        return State.dims.team.map(function (t) {
+          return { id: t.team_id, name: t.team_name, context: State.lobName(t.lob_id) };
+        });
+      }
+      return State.lobs.map(function (l) {
+        return { id: l.lob_id, name: l.lob_name, context: '' };
+      });
+    }
+
+    function buildGrid() {
+      gridSlot.innerHTML = '';
+      if (!state.metric_id || !state.period_id) {
+        gridSlot.appendChild(el('div', { class: 'muted small',
+          text: 'Choose a metric and a period to build the grid.' }));
+        return;
+      }
+      const metric = State.metricById(state.metric_id);
+      const list = subjects();
+      if (!list.length) {
+        gridSlot.appendChild(emptyState('No subjects',
+          'Add records for this subject type in Configuration first.'));
+        return;
+      }
+
+      const needsDen = metric.requires_denominator;
+      const table = el('table', { class: 'data' });
+      const thead = el('thead', {}, [el('tr', {}, [
+        el('th', { text: 'Subject' }),
+        needsDen ? el('th', { class: 'num',
+          text: metric.numerator_label || 'Numerator' }) : null,
+        needsDen ? el('th', { class: 'num',
+          text: metric.denominator_label || 'Denominator' }) : null,
+        el('th', { class: 'num', text: 'Value' }),
+        el('th', { text: 'Note' })
+      ].filter(Boolean))]);
+      const tbody = el('tbody');
+
+      list.forEach(function (s) {
+        const numInput = needsDen
+          ? el('input', { class: 'input', type: 'number', step: 'any',
+                          'data-role': 'num', style: 'text-align:right' })
+          : null;
+        const denInput = needsDen
+          ? el('input', { class: 'input', type: 'number', step: 'any',
+                          'data-role': 'den', style: 'text-align:right' })
+          : null;
+        const valInput = el('input', {
+          class: 'input', type: 'number', step: 'any', 'data-role': 'val',
+          style: 'text-align:right', readonly: needsDen ? 'readonly' : null
+        });
+
+        function recompute() {
+          const n = parseFloat(numInput.value), d = parseFloat(denInput.value);
+          if (isFinite(n) && isFinite(d) && d !== 0) {
+            const v = metric.data_type === 'PROPORTION' ? (n / d) * 100 : n / d;
+            valInput.value = v.toFixed(metric.decimal_places || 1);
+          } else valInput.value = '';
+        }
+        if (needsDen) {
+          numInput.addEventListener('input', recompute);
+          denInput.addEventListener('input', recompute);
+        }
+
+        const tr = el('tr', { 'data-subject': s.id }, [
+          el('td', {}, [
+            el('div', { class: 'strong', text: s.name }),
+            s.context ? el('div', { class: 'tiny subtle', text: s.context }) : null
+          ]),
+          needsDen ? el('td', { class: 'num' }, [numInput]) : null,
+          needsDen ? el('td', { class: 'num' }, [denInput]) : null,
+          el('td', { class: 'num' }, [valInput]),
+          el('td', {}, [el('input', { class: 'input', 'data-role': 'note',
+                                      placeholder: 'Optional' })])
+        ].filter(Boolean));
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(thead); table.appendChild(tbody);
+      gridSlot.appendChild(el('div', { class: 'table-wrap' }, [table]));
+
+      gridSlot.appendChild(el('div', { class: 'row', style: 'gap:8px;margin-top:14px' }, [
+        el('button', { class: 'btn btn-primary', text: 'Submit all',
+          onclick: function (e) { submitAll(e.target, tbody, metric); }}),
+        el('span', { class: 'tiny subtle',
+          text: 'Empty rows are skipped. Rows that fail validation are reported ' +
+                'individually — valid rows still save.' })
+      ]));
+    }
+
+    function submitAll(button, tbody, metric) {
+      const rows = [];
+      qsa('tr', tbody).forEach(function (tr) {
+        const val = qs('[data-role=val]', tr).value;
+        if (val === '' || val == null) return;
+        const numNode = qs('[data-role=num]', tr);
+        const denNode = qs('[data-role=den]', tr);
+        rows.push({
+          subject_type: state.subject_type,
+          subject_id: tr.getAttribute('data-subject'),
+          metric_id: state.metric_id, period_id: state.period_id,
+          numerator: numNode ? numNode.value : null,
+          denominator: denNode ? denNode.value : null,
+          value: val,
+          comments: qs('[data-role=note]', tr).value,
+          __tr: tr
+        });
+      });
+
+      if (!rows.length) { Toast.warn('Nothing to submit', 'Enter at least one value.'); return; }
+
+      button.disabled = true;
+      button.textContent = 'Saving ' + rows.length + ' rows…';
+      const payload = rows.map(function (r) {
+        const copy = Object.assign({}, r); delete copy.__tr; return copy;
+      });
+
+      API.call('data.submitBatch', { rows: payload }).then(function (res) {
+        button.disabled = false;
+        button.textContent = 'Submit all';
+        res.results.forEach(function (r) {
+          const tr = rows[r.index].__tr;
+          tr.style.background = r.ok ? '' : 'var(--negative-bg)';
+          const note = qs('[data-role=note]', tr);
+          if (!r.ok) note.classList.add('invalid');
+          else note.classList.remove('invalid');
+        });
+        if (res.failed) {
+          Toast.warn(res.saved + ' saved, ' + res.failed + ' rejected',
+            'Rejected rows are highlighted. ' +
+            (res.results.filter(function (r) { return !r.ok; })[0] || {}).error || '');
+        } else {
+          Toast.success('All ' + res.saved + ' values saved', '');
+        }
+      }).catch(function (err) {
+        button.disabled = false;
+        button.textContent = 'Submit all';
+        Toast.error('Not saved', err.message);
+      });
+    }
+
+    renderPeriodSelect();
+    buildGrid();
+  },
+
+  /* ---------------------------------------------------------- recent */
+
+  recent: function (panel) {
+    panel.appendChild(el('div', { class: 'skeleton skel-line', style: 'width:30%' }));
+    API.call('data.query', { filters: {}, limit: 200 }).then(function (rows) {
+      panel.innerHTML = '';
+      const recent = rows.slice(-100).reverse();
+      panel.appendChild(el('div', { class: 'card' }, [dataTable([
+        { key: 'period_label', label: 'Period' },
+        { key: 'metric_id', label: 'Metric',
+          render: function (r) {
+            const m = State.metricById(r.metric_id);
+            return m ? (m.display_name || m.metric_name) : r.metric_id;
+          }},
+        { key: 'subject_id', label: 'Subject',
+          render: function (r) {
+            return el('span', {}, [
+              el('span', { class: 'tiny badge', text: r.subject_type }),
+              el('span', { text: ' ' + State.subjectName(r.subject_type, r.subject_id) })
+            ]);
+          }},
+        { key: 'value', label: 'Value', numeric: true,
+          render: function (r) {
+            const m = State.metricById(r.metric_id);
+            return m ? fmtValue(r.value, m.unit, m.decimal_places) : String(r.value);
+          }},
+        { key: 'denominator', label: 'n', numeric: true,
+          render: function (r) {
+            return r.denominator == null ? '—' : fmtNumber(r.denominator);
+          }},
+        { key: 'quality_flags', label: 'Flags', sortable: false,
+          render: function (r) {
+            const flags = r.quality_flags || [];
+            if (!flags.length) return el('span', { class: 'tiny subtle', text: 'clean' });
+            return el('span', { class: 'badge badge-warn',
+              text: flags.length + ' flag' + (flags.length > 1 ? 's' : ''),
+              title: flags.map(function (f) { return f.message; }).join('\n') });
+          }},
+        { key: 'updated_by', label: 'By' },
+        { key: 'updated_at', label: 'When',
+          render: function (r) {
+            return el('span', { class: 'tiny muted',
+              text: new Date(r.updated_at).toLocaleString('en-US',
+                { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) });
+          }}
+      ], recent, { sortKey: 'updated_at', sortDir: -1,
+                   emptyText: 'No submissions yet.' })]));
+    }).catch(function (err) {
+      panel.innerHTML = '';
+      panel.appendChild(emptyState('Could not load submissions', err.message));
+    });
+  }
+};
+</script>

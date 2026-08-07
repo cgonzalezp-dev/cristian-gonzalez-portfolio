@@ -1,0 +1,1189 @@
+<script>
+/* ===========================================================================
+   ViewsConfig.html — the Configuration centre.
+
+   Everything the platform knows about the business is created here, at
+   runtime, by a user. No metric, LOB, period, target or chart is defined in
+   code. Adding "Forecast Accuracy" or a tenth line of business is a form
+   submission, not a deployment.
+   ========================================================================= */
+
+Views.config = {
+  title: 'Configuration',
+  subtitle: 'Define what the platform measures — no code changes required',
+
+  tabs: [
+    { key: 'lobs',       label: 'Lines of business' },
+    { key: 'metrics',    label: 'Metrics' },
+    { key: 'targets',    label: 'Targets' },
+    { key: 'periods',    label: 'Reporting periods' },
+    { key: 'charts',     label: 'Charts' },
+    { key: 'dimensions', label: 'Agents & org' },
+    { key: 'system',     label: 'System' }
+  ],
+
+  render: function (root, params) {
+    root.innerHTML = '';
+    if (!State.user.capabilities.includes('config')) {
+      root.appendChild(emptyState('Configuration is restricted',
+        'Your role is ' + State.user.role.toLowerCase() +
+        '. Ask an administrator for access.'));
+      return;
+    }
+
+    const active = (params && params.tab) || 'lobs';
+    const tabs = el('div', { class: 'tabs' });
+    Views.config.tabs.forEach(function (t) {
+      tabs.appendChild(el('button', {
+        class: 'tab' + (t.key === active ? ' active' : ''), text: t.label,
+        onclick: function () { Router.go('config', { tab: t.key }); }
+      }));
+    });
+    root.appendChild(tabs);
+
+    const panel = el('div');
+    root.appendChild(panel);
+    Views.config[active](panel);
+  },
+
+  /* ------------------------------------------------------------- LOBs */
+
+  lobs: function (panel) {
+    panel.appendChild(Views.config.header('Lines of business',
+      'Any operational unit you report on. Deactivating one hides it from ' +
+      'pickers without touching a single historical record.',
+      'New line of business', function () { Views.config.lobModal(null); }));
+
+    API.call('lob.list', { includeInactive: true }).then(function (lobs) {
+      panel.appendChild(el('div', { class: 'card' }, [dataTable([
+        { key: 'lob_name', label: 'Name',
+          render: function (r) {
+            return el('span', { class: 'strong', text: r.lob_name });
+          }},
+        { key: 'description', label: 'Description',
+          render: function (r) {
+            return el('span', { class: 'small muted', text: r.description || '—' });
+          }},
+        { key: 'parent_lob_id', label: 'Parent',
+          render: function (r) {
+            return r.parent_lob_id ? State.lobName(r.parent_lob_id) : '—';
+          }},
+        { key: 'status', label: 'Status',
+          render: function (r) {
+            return el('span', { class: 'pill ' +
+              (r.status === 'ACTIVE' ? 'pill-on' : 'pill-none') }, [
+              el('span', { class: 'pill-dot' }),
+              el('span', { text: r.status === 'ACTIVE' ? 'Active' : 'Inactive' })
+            ]);
+          }},
+        { key: 'actions', label: '', sortable: false,
+          render: function (r) {
+            return el('div', { class: 'row', style: 'gap:5px;justify-content:flex-end' }, [
+              el('button', { class: 'btn btn-sm', text: 'Edit',
+                onclick: function (e) {
+                  e.stopPropagation(); Views.config.lobModal(r);
+                }}),
+              el('button', {
+                class: 'btn btn-sm ' + (r.status === 'ACTIVE' ? 'btn-danger' : ''),
+                text: r.status === 'ACTIVE' ? 'Deactivate' : 'Reactivate',
+                onclick: function (e) {
+                  e.stopPropagation();
+                  API.call('lob.setStatus', { lob_id: r.lob_id,
+                    status: r.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' })
+                    .then(function () {
+                      Toast.success('Updated', r.lob_name + ' is now ' +
+                        (r.status === 'ACTIVE' ? 'inactive' : 'active') + '.');
+                      State.reload().then(function () {
+                        Router.go('config', { tab: 'lobs' });
+                      });
+                    }).catch(function (err) { Toast.error('Not updated', err.message); });
+                }})
+            ]);
+          }}
+      ], lobs, { sortKey: 'lob_name', emptyText: 'No lines of business yet.' })]));
+    });
+  },
+
+  lobModal: function (existing) {
+    const body = Modal.open({
+      title: existing ? 'Edit line of business' : 'New line of business',
+      subtitle: existing ? 'Renaming is safe — history is keyed on the ID, not the name.'
+                         : null,
+      actions: [
+        { label: 'Cancel', onClick: Modal.close },
+        { label: 'Save', primary: true, onClick: function (b) {
+            const f = readForm(b, ['lob_name', 'description', 'parent_lob_id',
+                                   'sort_order']);
+            f.lob_id = existing ? existing.lob_id : null;
+            API.call('lob.save', f).then(function () {
+              Modal.close();
+              Toast.success('Saved', f.lob_name + ' is ready to use.');
+              State.reload().then(function () { Router.go('config', { tab: 'lobs' }); });
+            }).catch(function (err) { Toast.error('Not saved', err.message); });
+        }}
+      ]
+    });
+
+    body.appendChild(inputField({ label: 'Name', id: 'lob_name', required: true,
+      value: existing ? existing.lob_name : '',
+      placeholder: 'e.g. Vehicle Solutions' }));
+    body.appendChild(inputField({ label: 'Description', id: 'description',
+      type: 'textarea', value: existing ? existing.description : '' }));
+    body.appendChild(selectField({ label: 'Parent (optional)', id: 'parent_lob_id',
+      placeholder: 'None — top level',
+      value: existing ? existing.parent_lob_id : '',
+      options: State.lobs.filter(function (l) {
+        return !existing || l.lob_id !== existing.lob_id;
+      }).map(function (l) { return { value: l.lob_id, label: l.lob_name }; }) }));
+    body.appendChild(inputField({ label: 'Sort order', id: 'sort_order', type: 'number',
+      value: existing ? existing.sort_order : '',
+      hint: 'Controls the order shown in pickers and dashboards.' }));
+  },
+
+  /* ----------------------------------------------------------- metrics */
+
+  metrics: function (panel) {
+    panel.appendChild(Views.config.header('Metrics',
+      'Every metric declares a data type, which is what lets one calculation ' +
+      'engine serve all of them. Adding a metric never requires a code change.',
+      'New metric', function () { Views.config.metricModal(null); }));
+
+    API.call('metric.list', { includeInactive: true }).then(function (metrics) {
+      panel.appendChild(el('div', { class: 'card' }, [dataTable([
+        { key: 'display_name', label: 'Metric',
+          render: function (r) {
+            return el('div', {}, [
+              el('div', { class: 'strong', text: r.display_name || r.metric_name }),
+              r.definition
+                ? el('div', { class: 'tiny subtle', text: r.definition })
+                : el('div', { class: 'tiny',
+                    style: 'color:var(--warning)', text: 'No definition recorded' })
+            ]);
+          }},
+        { key: 'data_type', label: 'Type',
+          render: function (r) {
+            return el('span', { class: 'badge',
+              text: r.data_type.toLowerCase().replace(/_/g, ' ') });
+          }},
+        { key: 'direction_of_success', label: 'Direction',
+          render: function (r) {
+            const map = { HIGHER_IS_BETTER: 'Higher is better',
+                          LOWER_IS_BETTER: 'Lower is better',
+                          TARGET_BASED: 'Target based' };
+            return el('span', { class: 'small', text: map[r.direction_of_success] });
+          }},
+        { key: 'aggregation_rule', label: 'Rolls up as',
+          render: function (r) {
+            return el('span', { class: 'small muted',
+              text: String(r.aggregation_rule || '').toLowerCase().replace(/_/g, ' ') });
+          }},
+        { key: 'lob_ids', label: 'Applies to', sortable: false,
+          render: function (r) {
+            if (!r.lob_ids || !r.lob_ids.length) {
+              return el('span', { class: 'tiny subtle', text: 'All' });
+            }
+            return el('span', { class: 'tiny muted',
+              text: r.lob_ids.map(State.lobName).join(', ') });
+          }},
+        { key: 'status', label: 'Status',
+          render: function (r) {
+            return el('span', { class: 'pill ' +
+              (r.status === 'ACTIVE' ? 'pill-on' : 'pill-none') }, [
+              el('span', { class: 'pill-dot' }),
+              el('span', { text: r.status === 'ACTIVE' ? 'Active' : 'Inactive' })
+            ]);
+          }},
+        { key: 'actions', label: '', sortable: false,
+          render: function (r) {
+            return el('div', { class: 'row', style: 'gap:5px;justify-content:flex-end' }, [
+              el('button', { class: 'btn btn-sm', text: 'Edit',
+                onclick: function () { Views.config.metricModal(r); }}),
+              el('button', {
+                class: 'btn btn-sm ' + (r.status === 'ACTIVE' ? 'btn-danger' : ''),
+                text: r.status === 'ACTIVE' ? 'Deactivate' : 'Reactivate',
+                onclick: function () {
+                  API.call('metric.setStatus', { metric_id: r.metric_id,
+                    status: r.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' })
+                    .then(function () {
+                      Toast.success('Updated', '');
+                      State.reload().then(function () {
+                        Router.go('config', { tab: 'metrics' });
+                      });
+                    });
+                }})
+            ]);
+          }}
+      ], metrics, { sortKey: 'display_name', emptyText: 'No metrics configured yet.' })]));
+    });
+  },
+
+  metricModal: function (existing) {
+    const types = State.enums.dataTypes;
+
+    const body = Modal.open({
+      title: existing ? 'Edit metric' : 'New metric',
+      subtitle: 'Data type drives the arithmetic: how changes are expressed, how ' +
+                'values roll up, and which control chart applies later.',
+      wide: true,
+      actions: [
+        { label: 'Cancel', onClick: Modal.close },
+        { label: 'Save', primary: true, onClick: function (b) {
+            const f = readForm(b, ['metric_name', 'display_name', 'definition',
+              'description', 'category', 'data_type', 'unit', 'decimal_places',
+              'direction_of_success', 'aggregation_rule', 'default_frequency',
+              'valid_min', 'valid_max', 'numerator_label', 'denominator_label',
+              'instrument', 'source_system', 'owner', 'min_sample_observation',
+              'lob_ids']);
+            f.requires_denominator = qs('#requires_denominator', b).checked;
+            f.metric_id = existing ? existing.metric_id : null;
+            API.call('metric.save', f).then(function () {
+              Modal.close();
+              Toast.success('Saved',
+                f.metric_name + ' is now available in data entry and dashboards.');
+              State.reload().then(function () {
+                Router.go('config', { tab: 'metrics' });
+              });
+            }).catch(function (err) { Toast.error('Not saved', err.message); });
+        }}
+      ]
+    });
+
+    const grid = el('div', { class: 'form-grid' });
+    body.appendChild(grid);
+
+    grid.appendChild(inputField({ label: 'Metric name', id: 'metric_name', required: true,
+      value: existing ? existing.metric_name : '',
+      placeholder: 'e.g. Quality @ Uber - Experience',
+      hint: 'The technical name. Charts can display something different.' }));
+    grid.appendChild(inputField({ label: 'Display name', id: 'display_name',
+      value: existing ? existing.display_name : '',
+      placeholder: 'e.g. Customer Experience Quality' }));
+
+    body.appendChild(inputField({ label: 'Definition', id: 'definition', type: 'textarea',
+      value: existing ? existing.definition : '',
+      placeholder: 'e.g. Surveys rated 4 or 5 divided by surveys received.',
+      hint: 'Write the formula in words. A metric without a definition is a metric ' +
+            'two people will calculate differently.' }));
+
+    const grid2 = el('div', { class: 'form-grid' });
+    body.appendChild(grid2);
+
+    const typeSelect = selectField({
+      label: 'Data type', id: 'data_type', value: existing ? existing.data_type : '',
+      placeholder: 'Select…',
+      options: types.map(function (t) { return { value: t.value, label: t.label }; }),
+      onChange: function (v) { applyTypeDefaults(v); }
+    });
+    grid2.appendChild(typeSelect);
+
+    grid2.appendChild(selectField({ label: 'Direction of success',
+      id: 'direction_of_success',
+      value: existing ? existing.direction_of_success : '', placeholder: 'Select…',
+      options: [
+        { value: 'HIGHER_IS_BETTER', label: 'Higher is better' },
+        { value: 'LOWER_IS_BETTER', label: 'Lower is better' },
+        { value: 'TARGET_BASED', label: 'Target based (either side is worse)' }
+      ]}));
+
+    grid2.appendChild(selectField({ label: 'Unit', id: 'unit',
+      value: existing ? existing.unit : '',
+      options: State.enums.units.map(function (u) {
+        return { value: u, label: u.toLowerCase().replace(/_/g, ' ') };
+      })}));
+
+    grid2.appendChild(selectField({ label: 'Rolls up as', id: 'aggregation_rule',
+      value: existing ? existing.aggregation_rule : '',
+      options: State.enums.aggregations.map(function (a) {
+        return { value: a, label: a.toLowerCase().replace(/_/g, ' ') };
+      }),
+      hint: 'Sum ratio is correct for any percentage.' }));
+
+    grid2.appendChild(selectField({ label: 'Default frequency', id: 'default_frequency',
+      value: existing ? existing.default_frequency : 'WEEKLY',
+      options: State.enums.periodTypes.map(function (p) {
+        return { value: p, label: p.charAt(0) + p.slice(1).toLowerCase() };
+      })}));
+
+    grid2.appendChild(inputField({ label: 'Decimal places', id: 'decimal_places',
+      type: 'number', value: existing ? existing.decimal_places : 1 }));
+
+    body.appendChild(el('div', { class: 'divider' }));
+    body.appendChild(el('div', { class: 'section-title', style: 'margin-top:0',
+      text: 'Numerator and denominator' }));
+    body.appendChild(el('div', { class: 'field-hint', style: 'margin-bottom:12px',
+      text: 'Capturing both is what makes weighted rollups, sample-size protection ' +
+            'and (later) correct control charts possible. Without a denominator, a ' +
+            '100% score on four observations outranks 94% on four hundred.' }));
+
+    const denCheck = el('label', { class: 'check' }, [
+      el('input', { type: 'checkbox', id: 'requires_denominator' }),
+      el('span', {}, [
+        el('div', { class: 'field-label', text: 'Require a denominator on entry' }),
+        el('div', { class: 'field-hint',
+          text: 'Values are still stored without one, but rollups get flagged as ' +
+                'unweighted.' })
+      ])
+    ]);
+    body.appendChild(denCheck);
+    if (!existing || existing.requires_denominator) {
+      qs('#requires_denominator', body).checked = true;
+    }
+
+    const grid3 = el('div', { class: 'form-grid' });
+    body.appendChild(grid3);
+    grid3.appendChild(inputField({ label: 'Numerator label', id: 'numerator_label',
+      value: existing ? existing.numerator_label : '',
+      placeholder: 'e.g. Satisfied responses' }));
+    grid3.appendChild(inputField({ label: 'Denominator label', id: 'denominator_label',
+      value: existing ? existing.denominator_label : '',
+      placeholder: 'e.g. Surveys received' }));
+    grid3.appendChild(inputField({ label: 'Valid minimum', id: 'valid_min', type: 'number',
+      value: existing ? existing.valid_min : '',
+      hint: 'Values outside the range are rejected on entry.' }));
+    grid3.appendChild(inputField({ label: 'Valid maximum', id: 'valid_max', type: 'number',
+      value: existing ? existing.valid_max : '' }));
+    grid3.appendChild(inputField({ label: 'Minimum sample per value',
+      id: 'min_sample_observation', type: 'number',
+      value: existing ? existing.min_sample_observation : '',
+      hint: 'Below this, the value is stored but excluded from rankings.' }));
+    grid3.appendChild(inputField({ label: 'Category', id: 'category',
+      value: existing ? existing.category : '', placeholder: 'e.g. Experience' }));
+
+    body.appendChild(el('div', { class: 'divider' }));
+    const grid4 = el('div', { class: 'form-grid' });
+    body.appendChild(grid4);
+    grid4.appendChild(inputField({ label: 'Instrument', id: 'instrument',
+      value: existing ? existing.instrument : '',
+      placeholder: 'e.g. Post-contact survey',
+      hint: 'Two instruments measuring the same concept are different metrics — ' +
+            'an operational CSAT and a survey CSAT will not agree, and should not ' +
+            'be averaged together.' }));
+    grid4.appendChild(inputField({ label: 'Source system', id: 'source_system',
+      value: existing ? existing.source_system : '' }));
+    grid4.appendChild(inputField({ label: 'Owner', id: 'owner',
+      value: existing ? existing.owner : '',
+      placeholder: 'Who answers questions about this number' }));
+
+    const lobSelect = el('select', { class: 'select', id: 'lob_ids', multiple: 'multiple',
+      size: Math.min(6, Math.max(3, State.lobs.length)) });
+    State.lobs.forEach(function (l) {
+      const o = el('option', { value: l.lob_id, text: l.lob_name });
+      if (existing && existing.lob_ids && existing.lob_ids.indexOf(l.lob_id) >= 0) {
+        o.selected = true;
+      }
+      lobSelect.appendChild(o);
+    });
+    grid4.appendChild(el('div', { class: 'field' }, [
+      el('label', { class: 'field-label', text: 'Applies to' }),
+      lobSelect,
+      el('div', { class: 'field-hint',
+        text: 'Select none to make this metric available everywhere.' })
+    ]));
+
+    function applyTypeDefaults(dataType) {
+      const spec = types.filter(function (t) { return t.value === dataType; })[0];
+      if (!spec) return;
+      qs('#unit', body).value = spec.defaults.unit;
+      qs('#aggregation_rule', body).value = spec.defaults.aggregation_rule;
+      qs('#requires_denominator', body).checked = spec.supportsDenominator;
+      if (spec.defaults.valid_min != null) qs('#valid_min', body).value =
+        spec.defaults.valid_min;
+      if (spec.defaults.valid_max != null) qs('#valid_max', body).value =
+        spec.defaults.valid_max;
+    }
+  },
+
+  /* ----------------------------------------------------------- targets */
+
+  targets: function (panel) {
+    panel.appendChild(Views.config.header('Targets',
+      'Targets are effective-dated. Changing one today does not rewrite last ' +
+      'quarter\'s results — history stays judged against the target that was ' +
+      'actually in force.',
+      'New target', function () { Views.config.targetModal(null); }));
+
+    API.call('target.list', {}).then(function (targets) {
+      panel.appendChild(el('div', { class: 'card' }, [dataTable([
+        { key: 'metric_id', label: 'Metric',
+          render: function (r) {
+            const m = State.metricById(r.metric_id);
+            return m ? (m.display_name || m.metric_name) : r.metric_id;
+          }},
+        { key: 'scope_type', label: 'Scope',
+          render: function (r) {
+            return el('span', {}, [
+              el('span', { class: 'badge', text: r.scope_type.toLowerCase() }),
+              r.scope_id
+                ? el('span', { class: 'small',
+                    text: ' ' + State.anyName(r.scope_id) })
+                : null
+            ]);
+          }},
+        { key: 'target_value', label: 'Target', numeric: true,
+          render: function (r) {
+            const m = State.metricById(r.metric_id);
+            return m ? fmtValue(r.target_value, m.unit, m.decimal_places)
+                     : String(r.target_value);
+          }},
+        { key: 'min_threshold', label: 'Thresholds', numeric: true, sortable: false,
+          render: function (r) {
+            const m = State.metricById(r.metric_id);
+            const lo = r.min_threshold != null
+              ? fmtValue(r.min_threshold, m && m.unit, m && m.decimal_places) : '—';
+            const hi = r.max_threshold != null
+              ? fmtValue(r.max_threshold, m && m.unit, m && m.decimal_places) : '—';
+            return el('span', { class: 'tiny muted', text: lo + ' / ' + hi });
+          }},
+        { key: 'valid_from', label: 'Effective',
+          render: function (r) {
+            return el('span', { class: 'tiny muted',
+              text: r.valid_from + ' → ' + (r.valid_to || 'open') });
+          }},
+        { key: 'period_type', label: 'Frequency',
+          render: function (r) {
+            return el('span', { class: 'tiny muted',
+              text: r.period_type ? r.period_type.toLowerCase() : 'all' });
+          }},
+        { key: 'actions', label: '', sortable: false,
+          render: function (r) {
+            return el('button', { class: 'btn btn-sm', text: 'Edit',
+              onclick: function () { Views.config.targetModal(r); }});
+          }}
+      ], targets, { sortKey: 'valid_from', sortDir: -1,
+                    emptyText: 'No targets configured. Metrics without a target are ' +
+                               'still tracked, but cannot be scored.' })]));
+    });
+  },
+
+  targetModal: function (existing) {
+    const body = Modal.open({
+      title: existing ? 'Edit target' : 'New target',
+      subtitle: 'Resolution runs most-specific first: agent → manager → team → ' +
+                'region → line of business → global.',
+      actions: [
+        { label: 'Cancel', onClick: Modal.close },
+        { label: 'Save', primary: true, onClick: function (b) {
+            const f = readForm(b, ['metric_id', 'scope_type', 'scope_id', 'period_type',
+              'target_value', 'min_threshold', 'max_threshold', 'valid_from', 'notes']);
+            f.target_id = existing ? existing.target_id : null;
+            API.call('target.save', f).then(function () {
+              Modal.close();
+              Toast.success('Target saved',
+                'Applies from ' + (f.valid_from || 'today') + ' onward. Earlier ' +
+                'periods keep the target that was in force at the time.');
+              Router.go('config', { tab: 'targets' });
+            }).catch(function (err) { Toast.error('Not saved', err.message); });
+        }}
+      ]
+    });
+
+    body.appendChild(selectField({ label: 'Metric', id: 'metric_id',
+      value: existing ? existing.metric_id : '', placeholder: 'Select…',
+      options: State.metrics.map(function (m) {
+        return { value: m.metric_id, label: m.display_name || m.metric_name };
+      })}));
+
+    const grid = el('div', { class: 'form-grid' });
+    body.appendChild(grid);
+
+    grid.appendChild(selectField({ label: 'Scope', id: 'scope_type',
+      value: existing ? existing.scope_type : 'GLOBAL',
+      options: State.enums.targetScopes.map(function (s) {
+        return { value: s, label: s.toLowerCase().replace(/_/g, ' ') };
+      }),
+      onChange: function (v) {
+        const slot = qs('#scope_id', body);
+        slot.disabled = (v === 'GLOBAL');
+        if (v === 'GLOBAL') slot.value = '';
+      }}));
+
+    const scopeOptions = []
+      .concat(State.lobs.map(function (l) {
+        return { value: l.lob_id, label: 'LOB — ' + l.lob_name }; }))
+      .concat(State.dims.team.map(function (t) {
+        return { value: t.team_id, label: 'Team — ' + t.team_name }; }))
+      .concat(State.dims.manager.map(function (m) {
+        return { value: m.manager_id, label: 'Manager — ' + m.manager_name }; }))
+      .concat(State.dims.region.map(function (r) {
+        return { value: r.region_id, label: 'Region — ' + r.region_name }; }))
+      .concat(State.dims.agent.map(function (a) {
+        return { value: a.agent_id, label: 'Agent — ' + a.agent_name }; }));
+
+    grid.appendChild(selectField({ label: 'Applies to', id: 'scope_id',
+      value: existing ? existing.scope_id : '', placeholder: 'Everything (global)',
+      options: scopeOptions }));
+
+    grid.appendChild(inputField({ label: 'Target value', id: 'target_value',
+      type: 'number', step: 'any', required: true,
+      value: existing ? existing.target_value : '' }));
+
+    grid.appendChild(selectField({ label: 'Frequency', id: 'period_type',
+      value: existing ? existing.period_type : '', placeholder: 'All frequencies',
+      options: State.enums.periodTypes.map(function (p) {
+        return { value: p, label: p.charAt(0) + p.slice(1).toLowerCase() };
+      })}));
+
+    grid.appendChild(inputField({ label: 'Lower threshold', id: 'min_threshold',
+      type: 'number', step: 'any', value: existing ? existing.min_threshold : '',
+      hint: 'Between threshold and target reads "at risk" rather than a miss.' }));
+    grid.appendChild(inputField({ label: 'Upper threshold', id: 'max_threshold',
+      type: 'number', step: 'any', value: existing ? existing.max_threshold : '' }));
+
+    body.appendChild(inputField({ label: 'Effective from', id: 'valid_from', type: 'date',
+      value: existing ? existing.valid_from : new Date().toISOString().slice(0, 10),
+      hint: 'Any existing open-ended target for the same scope is closed the day ' +
+            'before this date, rather than overwritten.' }));
+    body.appendChild(inputField({ label: 'Notes', id: 'notes', type: 'textarea',
+      value: existing ? existing.notes : '',
+      placeholder: 'Why this target, and who agreed it' }));
+  },
+
+  /* ----------------------------------------------------------- periods */
+
+  periods: function (panel) {
+    panel.appendChild(Views.config.header('Reporting periods',
+      'Labels are stored exactly as typed and never regenerated. Ordering always ' +
+      'comes from the start date, so "Week 4" sits before "Week 31" and ' +
+      '"August W1" lands where its dates say it should.',
+      'New period', function () { Views.config.periodModal(null); },
+      { label: 'Generate a run', onClick: function () { Views.config.generateModal(); }}));
+
+    API.call('period.list', {}).then(function (periods) {
+      panel.appendChild(el('div', { class: 'card' }, [dataTable([
+        { key: 'period_label', label: 'Label',
+          render: function (r) {
+            return el('span', { class: 'strong', text: r.period_label });
+          }},
+        { key: 'period_type', label: 'Frequency',
+          render: function (r) {
+            return el('span', { class: 'badge', text: r.period_type.toLowerCase() });
+          }},
+        { key: 'start_date', label: 'From' },
+        { key: 'end_date', label: 'To' },
+        { key: 'week_number', label: 'Week', numeric: true },
+        { key: 'calendar_id', label: 'Calendar',
+          render: function (r) {
+            return el('span', { class: 'tiny muted', text: r.calendar_id });
+          }},
+        { key: 'actions', label: '', sortable: false,
+          render: function (r) {
+            return el('button', { class: 'btn btn-sm', text: 'Edit',
+              onclick: function () { Views.config.periodModal(r); }});
+          }}
+      ], periods, { sortKey: 'start_date', sortDir: -1,
+                    emptyText: 'No periods yet. Generate a run to get started.' })]));
+    });
+  },
+
+  periodModal: function (existing) {
+    const body = Modal.open({
+      title: existing ? 'Edit period' : 'New period',
+      actions: [
+        { label: 'Cancel', onClick: Modal.close },
+        { label: 'Save', primary: true, onClick: function (b) {
+            const f = readForm(b, ['period_type', 'period_label', 'start_date',
+                                   'end_date', 'week_number', 'calendar_id']);
+            f.period_id = existing ? existing.period_id : null;
+            API.call('period.save', f).then(function () {
+              Modal.close();
+              Toast.success('Period saved', f.period_label + ' is available for entry.');
+              State.reload().then(function () {
+                Router.go('config', { tab: 'periods' });
+              });
+            }).catch(function (err) { Toast.error('Not saved', err.message); });
+        }}
+      ]
+    });
+
+    body.appendChild(selectField({ label: 'Frequency', id: 'period_type',
+      value: existing ? existing.period_type : 'WEEKLY',
+      options: State.enums.periodTypes.map(function (p) {
+        return { value: p, label: p.charAt(0) + p.slice(1).toLowerCase() };
+      })}));
+    body.appendChild(inputField({ label: 'Label', id: 'period_label', required: true,
+      value: existing ? existing.period_label : '',
+      placeholder: 'e.g. Week 31, Week 31 - July, August W1, Q3 2026',
+      hint: 'Stored verbatim. Whatever you type is what every chart and table shows.' }));
+
+    const grid = el('div', { class: 'form-grid' });
+    body.appendChild(grid);
+    grid.appendChild(inputField({ label: 'Start date', id: 'start_date', type: 'date',
+      required: true, value: existing ? existing.start_date : '' }));
+    grid.appendChild(inputField({ label: 'End date', id: 'end_date', type: 'date',
+      required: true, value: existing ? existing.end_date : '' }));
+    grid.appendChild(inputField({ label: 'Week number', id: 'week_number', type: 'number',
+      value: existing ? existing.week_number : '',
+      hint: 'Filled from the start date if left blank.' }));
+    grid.appendChild(inputField({ label: 'Calendar', id: 'calendar_id',
+      value: existing ? existing.calendar_id : 'default',
+      hint: 'Use separate calendars to run fiscal and calendar periods side by side.' }));
+  },
+
+  generateModal: function () {
+    const body = Modal.open({
+      title: 'Generate a run of periods',
+      subtitle: 'Creates ordinary, fully editable periods. Rename any of them ' +
+                'afterwards — nothing about a generated label is special.',
+      actions: [
+        { label: 'Cancel', onClick: Modal.close },
+        { label: 'Generate', primary: true, onClick: function (b) {
+            const f = readForm(b, ['period_type', 'start_date', 'count',
+                                   'label_pattern', 'calendar_id']);
+            API.call('period.generate', f).then(function (created) {
+              Modal.close();
+              Toast.success(created.length + ' periods created',
+                'Any that already existed were left untouched.');
+              State.reload().then(function () {
+                Router.go('config', { tab: 'periods' });
+              });
+            }).catch(function (err) { Toast.error('Not generated', err.message); });
+        }}
+      ]
+    });
+
+    body.appendChild(selectField({ label: 'Frequency', id: 'period_type', value: 'WEEKLY',
+      options: State.enums.periodTypes.map(function (p) {
+        return { value: p, label: p.charAt(0) + p.slice(1).toLowerCase() };
+      })}));
+    const grid = el('div', { class: 'form-grid' });
+    body.appendChild(grid);
+    grid.appendChild(inputField({ label: 'First period starts', id: 'start_date',
+      type: 'date', required: true }));
+    grid.appendChild(inputField({ label: 'How many', id: 'count', type: 'number',
+      value: 13 }));
+    body.appendChild(inputField({ label: 'Label pattern', id: 'label_pattern',
+      value: 'Week {week}',
+      hint: 'Placeholders: {n} {week} {month} {quarter} {year} {start} {end}. ' +
+            'Examples: "Week {week}", "{month} {year}", "{quarter} {year}", ' +
+            '"{month} W{n}".' }));
+    body.appendChild(inputField({ label: 'Calendar', id: 'calendar_id', value: 'default' }));
+  },
+
+  /* ------------------------------------------------------------ charts */
+
+  charts: function (panel) {
+    panel.appendChild(Views.config.header('Charts',
+      'Chart titles are independent of metric names. A metric called ' +
+      '"Quality @ Uber - Experience" can appear on a chart titled "Customer ' +
+      'Experience Quality".',
+      'New chart', function () { Views.config.chartModal(null); }));
+
+    API.call('chart.list', {}).then(function (charts) {
+      if (!charts.length) {
+        panel.appendChild(emptyState('No saved charts',
+          'Charts you define here appear on the dashboard. Metric pages already ' +
+          'render a default trend without any configuration.'));
+        return;
+      }
+      panel.appendChild(el('div', { class: 'card' }, [dataTable([
+        { key: 'chart_title', label: 'Title',
+          render: function (r) {
+            return el('div', {}, [
+              el('div', { class: 'strong', text: r.chart_title }),
+              r.subtitle ? el('div', { class: 'tiny subtle', text: r.subtitle }) : null
+            ]);
+          }},
+        { key: 'chart_type', label: 'Type',
+          render: function (r) {
+            return el('span', { class: 'badge',
+              text: r.chart_type.toLowerCase().replace(/_/g, ' ') });
+          }},
+        { key: 'metric_ids', label: 'Metrics', sortable: false,
+          render: function (r) {
+            return el('span', { class: 'tiny muted',
+              text: (r.metric_ids || []).map(function (id) {
+                const m = State.metricById(id);
+                return m ? (m.display_name || m.metric_name) : id;
+              }).join(', ') });
+          }},
+        { key: 'period_count', label: 'Periods', numeric: true },
+        { key: 'actions', label: '', sortable: false,
+          render: function (r) {
+            return el('div', { class: 'row', style: 'gap:5px;justify-content:flex-end' }, [
+              el('button', { class: 'btn btn-sm', text: 'Edit',
+                onclick: function () { Views.config.chartModal(r); }}),
+              el('button', { class: 'btn btn-sm btn-danger', text: 'Remove',
+                onclick: function () {
+                  API.call('chart.setStatus', { chart_id: r.chart_id,
+                    status: 'INACTIVE' }).then(function () {
+                      Toast.success('Removed', '');
+                      Router.go('config', { tab: 'charts' });
+                    });
+                }})
+            ]);
+          }}
+      ], charts, { sortKey: 'sort_order' })]));
+    });
+  },
+
+  chartModal: function (existing) {
+    const body = Modal.open({
+      title: existing ? 'Edit chart' : 'New chart',
+      wide: true,
+      actions: [
+        { label: 'Cancel', onClick: Modal.close },
+        { label: 'Save', primary: true, onClick: function (b) {
+            const f = readForm(b, ['chart_title', 'subtitle', 'description', 'footer',
+              'chart_type', 'metric_ids', 'lob_ids', 'period_type', 'period_count',
+              'x_axis_label', 'y_axis_label', 'y_min', 'y_max', 'width']);
+            f.show_target_line = qs('#show_target_line', b).checked;
+            f.show_data_labels = qs('#show_data_labels', b).checked;
+            f.chart_id = existing ? existing.chart_id : null;
+            f.dashboard_id = 'default';
+            API.call('chart.save', f).then(function () {
+              Modal.close();
+              Toast.success('Chart saved', '');
+              Router.go('config', { tab: 'charts' });
+            }).catch(function (err) { Toast.error('Not saved', err.message); });
+        }}
+      ]
+    });
+
+    body.appendChild(inputField({ label: 'Chart title', id: 'chart_title', required: true,
+      value: existing ? existing.chart_title : '',
+      placeholder: 'e.g. Weekly Service Level Performance',
+      hint: 'Shown above the chart. Nothing forces this to match a metric name.' }));
+
+    const grid = el('div', { class: 'form-grid' });
+    body.appendChild(grid);
+    grid.appendChild(inputField({ label: 'Subtitle', id: 'subtitle',
+      value: existing ? existing.subtitle : '' }));
+    grid.appendChild(inputField({ label: 'Footer', id: 'footer',
+      value: existing ? existing.footer : '',
+      placeholder: 'e.g. Source: Genesys, weekly extract' }));
+
+    grid.appendChild(selectField({ label: 'Chart type', id: 'chart_type',
+      value: existing ? existing.chart_type : 'LINE',
+      options: State.enums.chartTypes.map(function (t) {
+        return { value: t, label: t.toLowerCase().replace(/_/g, ' ') };
+      })}));
+    grid.appendChild(selectField({ label: 'Frequency', id: 'period_type',
+      value: existing ? existing.period_type : 'WEEKLY',
+      options: State.enums.periodTypes.map(function (p) {
+        return { value: p, label: p.charAt(0) + p.slice(1).toLowerCase() };
+      })}));
+    grid.appendChild(inputField({ label: 'Periods to show', id: 'period_count',
+      type: 'number', value: existing ? existing.period_count : 12 }));
+    grid.appendChild(selectField({ label: 'Width', id: 'width',
+      value: existing ? existing.width : 'half',
+      options: [{ value: 'half', label: 'Half width' },
+                { value: 'full', label: 'Full width' }]}));
+
+    const metricSelect = el('select', { class: 'select', id: 'metric_ids',
+      multiple: 'multiple', size: 5 });
+    State.metrics.forEach(function (m) {
+      const o = el('option', { value: m.metric_id,
+        text: m.display_name || m.metric_name });
+      if (existing && (existing.metric_ids || []).indexOf(m.metric_id) >= 0) {
+        o.selected = true;
+      }
+      metricSelect.appendChild(o);
+    });
+    const lobSelect = el('select', { class: 'select', id: 'lob_ids',
+      multiple: 'multiple', size: 5 });
+    State.lobs.forEach(function (l) {
+      const o = el('option', { value: l.lob_id, text: l.lob_name });
+      if (existing && (existing.lob_ids || []).indexOf(l.lob_id) >= 0) o.selected = true;
+      lobSelect.appendChild(o);
+    });
+
+    const grid2 = el('div', { class: 'form-grid' });
+    body.appendChild(grid2);
+    grid2.appendChild(el('div', { class: 'field' }, [
+      el('label', { class: 'field-label', text: 'Metrics' }), metricSelect ]));
+    grid2.appendChild(el('div', { class: 'field' }, [
+      el('label', { class: 'field-label', text: 'Lines of business' }), lobSelect,
+      el('div', { class: 'field-hint',
+        text: 'Select none for an organisation-wide series.' })]));
+
+    const grid3 = el('div', { class: 'form-grid' });
+    body.appendChild(grid3);
+    grid3.appendChild(inputField({ label: 'Y-axis minimum', id: 'y_min', type: 'number',
+      value: existing ? existing.y_min : '',
+      hint: 'Leave blank to fit the data. Forcing a percentage to 0-100 usually ' +
+            'hides the movement worth seeing.' }));
+    grid3.appendChild(inputField({ label: 'Y-axis maximum', id: 'y_max', type: 'number',
+      value: existing ? existing.y_max : '' }));
+    grid3.appendChild(inputField({ label: 'X-axis label', id: 'x_axis_label',
+      value: existing ? existing.x_axis_label : '' }));
+    grid3.appendChild(inputField({ label: 'Y-axis label', id: 'y_axis_label',
+      value: existing ? existing.y_axis_label : '' }));
+
+    const targetCheck = el('label', { class: 'check' }, [
+      el('input', { type: 'checkbox', id: 'show_target_line' }),
+      el('span', {}, [el('div', { class: 'field-label', text: 'Show the target line' })])
+    ]);
+    const labelCheck = el('label', { class: 'check' }, [
+      el('input', { type: 'checkbox', id: 'show_data_labels' }),
+      el('span', {}, [el('div', { class: 'field-label', text: 'Show data labels' })])
+    ]);
+    body.appendChild(targetCheck);
+    body.appendChild(labelCheck);
+    qs('#show_target_line', body).checked = existing ? !!existing.show_target_line : true;
+    qs('#show_data_labels', body).checked = existing ? !!existing.show_data_labels : false;
+  },
+
+  /* -------------------------------------------------------- dimensions */
+
+  dimensions: function (panel) {
+    const kinds = [
+      { key: 'agent', label: 'Agents', nameField: 'agent_name' },
+      { key: 'manager', label: 'Managers', nameField: 'manager_name' },
+      { key: 'team', label: 'Teams', nameField: 'team_name' },
+      { key: 'region', label: 'Regions', nameField: 'region_name' },
+      { key: 'cohort', label: 'Benchmark cohorts', nameField: 'cohort_name' }
+    ];
+
+    panel.appendChild(Views.config.header('Agents and organisation',
+      'The subjects you can record values against. Benchmark cohorts are ' +
+      'populations with no operator behind them — useful for comparing a service ' +
+      'against a wider group.', null, null));
+
+    const sub = el('div', { class: 'tabs' });
+    panel.appendChild(sub);
+    const slot = el('div');
+    panel.appendChild(slot);
+
+    kinds.forEach(function (k, i) {
+      sub.appendChild(el('button', {
+        class: 'tab' + (i === 0 ? ' active' : ''), text: k.label,
+        onclick: function (e) {
+          qsa('.tab', sub).forEach(function (t) { t.classList.remove('active'); });
+          e.target.classList.add('active');
+          Views.config.dimensionTable(slot, k);
+        }
+      }));
+    });
+    Views.config.dimensionTable(slot, kinds[0]);
+  },
+
+  dimensionTable: function (slot, kind) {
+    slot.innerHTML = '';
+    slot.appendChild(el('div', { class: 'row', style: 'justify-content:flex-end;' +
+      'margin-bottom:12px' }, [
+      el('button', { class: 'btn btn-primary btn-sm',
+        html: icon('plus', 13) + ' New ' + kind.label.toLowerCase().replace(/s$/, ''),
+        onclick: function () { Views.config.dimensionModal(kind, null); }})
+    ]));
+
+    API.call('dim.list', { dimension: kind.key, includeInactive: true })
+      .then(function (rows) {
+        const columns = [
+          { key: kind.nameField, label: 'Name',
+            render: function (r) {
+              return el('span', { class: 'strong', text: r[kind.nameField] });
+            }}
+        ];
+        if (kind.key === 'agent') {
+          columns.push({ key: 'lob_id', label: 'LOB',
+            render: function (r) { return State.lobName(r.lob_id) || '—'; }});
+          columns.push({ key: 'manager_id', label: 'Manager',
+            render: function (r) { return State.anyName(r.manager_id) || '—'; }});
+          columns.push({ key: 'team_id', label: 'Team',
+            render: function (r) { return State.anyName(r.team_id) || '—'; }});
+        }
+        if (kind.key === 'manager') {
+          columns.push({ key: 'email', label: 'Email',
+            render: function (r) {
+              return el('span', { class: 'tiny mono muted', text: r.email || '—' });
+            }});
+        }
+        columns.push({ key: 'status', label: 'Status',
+          render: function (r) {
+            return el('span', { class: 'pill ' +
+              (r.status === 'ACTIVE' ? 'pill-on' : 'pill-none') }, [
+              el('span', { class: 'pill-dot' }),
+              el('span', { text: r.status === 'ACTIVE' ? 'Active' : 'Inactive' })
+            ]);
+          }});
+        columns.push({ key: 'actions', label: '', sortable: false,
+          render: function (r) {
+            const id = r[kind.key + '_id'];
+            return el('div', { class: 'row', style: 'gap:5px;justify-content:flex-end' }, [
+              el('button', { class: 'btn btn-sm', text: 'Edit',
+                onclick: function () { Views.config.dimensionModal(kind, r); }}),
+              el('button', {
+                class: 'btn btn-sm ' + (r.status === 'ACTIVE' ? 'btn-danger' : ''),
+                text: r.status === 'ACTIVE' ? 'Deactivate' : 'Reactivate',
+                onclick: function () {
+                  API.call('dim.setStatus', { dimension: kind.key, id: id,
+                    status: r.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' })
+                    .then(function () {
+                      Toast.success('Updated', '');
+                      State.reload().then(function () {
+                        Views.config.dimensionTable(slot, kind);
+                      });
+                    });
+                }})
+            ]);
+          }});
+
+        slot.appendChild(el('div', { class: 'card' }, [dataTable(columns, rows, {
+          sortKey: kind.nameField,
+          emptyText: 'No ' + kind.label.toLowerCase() + ' yet.'
+        })]));
+      });
+  },
+
+  dimensionModal: function (kind, existing) {
+    const body = Modal.open({
+      title: (existing ? 'Edit ' : 'New ') + kind.label.toLowerCase().replace(/s$/, ''),
+      actions: [
+        { label: 'Cancel', onClick: Modal.close },
+        { label: 'Save', primary: true, onClick: function (b) {
+            const keys = [kind.nameField];
+            if (kind.key === 'agent') {
+              keys.push('email', 'lob_id', 'team_id', 'manager_id', 'region_id',
+                        'site', 'hire_date');
+            }
+            if (kind.key === 'manager') keys.push('email', 'lob_id', 'region_id');
+            if (kind.key === 'team') keys.push('lob_id', 'manager_id');
+            if (kind.key === 'region') keys.push('country');
+            if (kind.key === 'cohort') keys.push('description', 'population_definition');
+
+            const record = readForm(b, keys);
+            if (existing) record[kind.key + '_id'] = existing[kind.key + '_id'];
+            API.call('dim.save', { dimension: kind.key, record: record })
+              .then(function () {
+                Modal.close();
+                Toast.success('Saved', '');
+                State.reload().then(function () {
+                  Router.go('config', { tab: 'dimensions' });
+                });
+              }).catch(function (err) { Toast.error('Not saved', err.message); });
+        }}
+      ]
+    });
+
+    body.appendChild(inputField({ label: 'Name', id: kind.nameField, required: true,
+      value: existing ? existing[kind.nameField] : '' }));
+
+    const grid = el('div', { class: 'form-grid' });
+    body.appendChild(grid);
+
+    if (kind.key === 'agent' || kind.key === 'manager') {
+      grid.appendChild(inputField({ label: 'Email', id: 'email', type: 'email',
+        value: existing ? existing.email : '',
+        hint: kind.key === 'manager'
+          ? 'Managers are recognised by email and get the manager role automatically.'
+          : '' }));
+    }
+    if (kind.key !== 'region' && kind.key !== 'cohort') {
+      grid.appendChild(selectField({ label: 'Line of business', id: 'lob_id',
+        value: existing ? existing.lob_id : '', placeholder: 'Select…',
+        options: State.lobs.map(function (l) {
+          return { value: l.lob_id, label: l.lob_name };
+        })}));
+    }
+    if (kind.key === 'agent' || kind.key === 'team') {
+      grid.appendChild(selectField({ label: 'Manager', id: 'manager_id',
+        value: existing ? existing.manager_id : '', placeholder: 'Select…',
+        options: State.dims.manager.map(function (m) {
+          return { value: m.manager_id, label: m.manager_name };
+        })}));
+    }
+    if (kind.key === 'agent') {
+      grid.appendChild(selectField({ label: 'Team', id: 'team_id',
+        value: existing ? existing.team_id : '', placeholder: 'Select…',
+        options: State.dims.team.map(function (t) {
+          return { value: t.team_id, label: t.team_name };
+        })}));
+      grid.appendChild(selectField({ label: 'Region', id: 'region_id',
+        value: existing ? existing.region_id : '', placeholder: 'Select…',
+        options: State.dims.region.map(function (r) {
+          return { value: r.region_id, label: r.region_name };
+        })}));
+      grid.appendChild(inputField({ label: 'Site', id: 'site',
+        value: existing ? existing.site : '' }));
+      grid.appendChild(inputField({ label: 'Hire date', id: 'hire_date', type: 'date',
+        value: existing ? existing.hire_date : '' }));
+    }
+    if (kind.key === 'manager') {
+      grid.appendChild(selectField({ label: 'Region', id: 'region_id',
+        value: existing ? existing.region_id : '', placeholder: 'Select…',
+        options: State.dims.region.map(function (r) {
+          return { value: r.region_id, label: r.region_name };
+        })}));
+    }
+    if (kind.key === 'region') {
+      grid.appendChild(inputField({ label: 'Country', id: 'country',
+        value: existing ? existing.country : '' }));
+    }
+    if (kind.key === 'cohort') {
+      body.appendChild(inputField({ label: 'Description', id: 'description',
+        type: 'textarea', value: existing ? existing.description : '' }));
+      body.appendChild(inputField({ label: 'Population definition',
+        id: 'population_definition', type: 'textarea',
+        value: existing ? existing.population_definition : '',
+        hint: 'Exactly who is in this cohort. A benchmark nobody can define is a ' +
+              'benchmark nobody should be compared against.' }));
+    }
+  },
+
+  /* ------------------------------------------------------------ system */
+
+  system: function (panel) {
+    panel.appendChild(Views.config.header('System',
+      'Platform health, calculation defaults and the audit trail.', null, null));
+
+    const settingsCard = el('div', { class: 'card', style: 'margin-bottom:18px' });
+    settingsCard.appendChild(el('div', { class: 'card-head' }, [
+      el('div', {}, [
+        el('h3', { class: 'card-title', text: 'Calculation defaults' }),
+        el('p', { class: 'card-sub',
+          text: 'Applied wherever a metric does not override them.' })
+      ])
+    ]));
+    const settingsBody = el('div', { class: 'card-body form-grid' });
+    settingsCard.appendChild(settingsBody);
+    panel.appendChild(settingsCard);
+
+    const editable = [
+      ['min_sample_cross_sectional', 'Minimum population for comparison'],
+      ['min_sample_observation', 'Minimum observations per value'],
+      ['min_periods_control_chart', 'Periods before control limits'],
+      ['rolling_window', 'Rolling average window'],
+      ['stable_band_pp', 'Stability band (below this reads "held steady")'],
+      ['unexpected_jump_sd', 'Standard deviations before flagging a jump'],
+      ['default_decimal_places', 'Default decimal places']
+    ];
+    editable.forEach(function (s) {
+      settingsBody.appendChild(inputField({
+        label: s[1], id: 'set_' + s[0], type: 'number', step: 'any',
+        value: State.settings[s[0]]
+      }));
+    });
+    settingsCard.appendChild(el('div', { class: 'card-foot row' }, [
+      el('button', { class: 'btn btn-primary btn-sm', text: 'Save defaults',
+        onclick: function () {
+          const out = {};
+          editable.forEach(function (s) {
+            out[s[0]] = parseFloat(qs('#set_' + s[0], settingsBody).value);
+          });
+          API.call('settings.save', { settings: out }).then(function (saved) {
+            State.settings = saved;
+            Toast.success('Defaults saved',
+              'Applies to every calculation from the next refresh.');
+          }).catch(function (err) { Toast.error('Not saved', err.message); });
+        }})
+    ]));
+
+    // Health / capacity
+    const health = el('div', { class: 'card', style: 'margin-bottom:18px' });
+    panel.appendChild(health);
+    health.appendChild(el('div', { class: 'card-body' },
+      [el('div', { class: 'skeleton skel-line', style: 'width:40%' })]));
+
+    API.call('app.health', {}).then(function (h) {
+      health.innerHTML = '';
+      health.appendChild(el('div', { class: 'card-head' }, [
+        el('div', {}, [
+          el('h3', { class: 'card-title', text: 'Storage and capacity' }),
+          el('p', { class: 'card-sub',
+            text: 'Sheets is the right store at this scale. These are the ' +
+                  'thresholds at which it stops being.' })
+        ]),
+        el('div', { class: 'card-actions' }, [
+          el('button', { class: 'btn btn-sm', html: icon('refresh', 13) + ' Rebuild',
+            onclick: function (e) {
+              e.target.disabled = true;
+              e.target.textContent = 'Rebuilding…';
+              API.call('app.rebuild', {}).then(function (r) {
+                Toast.success('Rebuild ' + r.status.toLowerCase(),
+                  r.rows + ' rollups computed.');
+                Router.go('config', { tab: 'system' });
+              }).catch(function (err) {
+                Toast.error('Rebuild failed', err.message);
+              });
+            }})
+        ])
+      ]));
+      health.appendChild(el('div', { class: 'card-body row',
+        style: 'gap:32px;flex-wrap:wrap' }, [
+        Views.lob.stat('Fact rows',
+          fmtNumber(h.factRows) + ' / ' + fmtNumber(h.factRowLimit),
+          h.factRowPct > 80 ? 'negative' : h.factRowPct > 60 ? 'warning' : null),
+        Views.lob.stat('Spreadsheet cells', h.cellPct + '% of limit',
+          h.cellPct > 70 ? 'warning' : null),
+        Views.lob.stat('Year partitions', h.partitions.join(', ') || '—')
+      ]));
+      if (h.migrationRecommended) {
+        health.appendChild(el('div', { class: 'insight insight-WARNING' }, [
+          el('span', { class: 'insight-icon', html: icon('alert', 14) }),
+          el('span', { text: 'This deployment has passed the threshold where a ' +
+            'database-backed fact store is worth the move. The data access layer ' +
+            'is already an interface, so migrating replaces one module and leaves ' +
+            'every calculation and screen untouched.' })
+        ]));
+      }
+    }).catch(function () { health.innerHTML = ''; });
+
+    // Audit trail
+    const audit = el('div', { class: 'card' });
+    panel.appendChild(audit);
+    audit.appendChild(el('div', { class: 'card-head' }, [
+      el('div', {}, [
+        el('h3', { class: 'card-title', text: 'Audit trail' }),
+        el('p', { class: 'card-sub',
+          text: 'Every configuration change and every value edit, with before ' +
+                'and after.' })
+      ])
+    ]));
+    API.call('audit.recent', { limit: 60 }).then(function (rows) {
+      audit.appendChild(dataTable([
+        { key: 'at', label: 'When',
+          render: function (r) {
+            return el('span', { class: 'tiny muted',
+              text: new Date(r.at).toLocaleString('en-US',
+                { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) });
+          }},
+        { key: 'actor', label: 'Who',
+          render: function (r) {
+            return el('span', { class: 'tiny mono', text: r.actor });
+          }},
+        { key: 'action', label: 'Action',
+          render: function (r) {
+            return el('span', { class: 'badge', text: r.action.toLowerCase() });
+          }},
+        { key: 'entity_table', label: 'Entity',
+          render: function (r) {
+            return el('span', { class: 'tiny muted',
+              text: r.entity_table.replace(/^(config|dim|fact|sys)_/, '') });
+          }},
+        { key: 'field', label: 'Field' },
+        { key: 'old_value', label: 'From',
+          render: function (r) {
+            return el('span', { class: 'tiny subtle', text: r.old_value || '—' });
+          }},
+        { key: 'new_value', label: 'To',
+          render: function (r) {
+            return el('span', { class: 'tiny', text: r.new_value || '—' });
+          }}
+      ], rows, { sortKey: 'at', sortDir: -1, emptyText: 'No changes recorded yet.' }));
+    });
+  },
+
+  /* ------------------------------------------------------------ shared */
+
+  header: function (title, description, actionLabel, onAction, secondary) {
+    const actions = el('div', { class: 'row', style: 'gap:8px;margin-left:auto' });
+    if (secondary) {
+      actions.appendChild(el('button', { class: 'btn', text: secondary.label,
+        onclick: secondary.onClick }));
+    }
+    if (actionLabel) {
+      actions.appendChild(el('button', { class: 'btn btn-primary',
+        html: icon('plus', 13) + ' ' + esc(actionLabel), onclick: onAction }));
+    }
+    return el('div', { class: 'row-between', style: 'margin-bottom:16px;align-items:' +
+      'flex-start;gap:20px' }, [
+      el('div', { style: 'max-width:640px' }, [
+        el('div', { style: 'font-size:15px;font-weight:640;letter-spacing:-.015em',
+          text: title }),
+        el('div', { class: 'small muted', style: 'margin-top:3px', text: description })
+      ]),
+      actions
+    ]);
+  }
+};
+</script>
