@@ -14,7 +14,7 @@ type NavbarProps = {
 };
 
 export function Navbar({ route, onNavigate }: NavbarProps) {
-  const items = route === "strategy" ? strategyNav : nav;
+  const items = route === "strategy" ? strategyNav : route === "games" ? [] : nav;
   const sectionIds = items.map((item) => item.href.replace("#", ""));
   const activeId = useScrollSpy(sectionIds);
   const { theme, toggleTheme } = useTheme();
@@ -35,6 +35,7 @@ export function Navbar({ route, onNavigate }: NavbarProps) {
   const tabs: { label: string; value: Route }[] = [
     { label: "Profile", value: "profile" },
     { label: "Business Case", value: "strategy" },
+    { label: "Juegos", value: "games" },
   ];
 
   return (

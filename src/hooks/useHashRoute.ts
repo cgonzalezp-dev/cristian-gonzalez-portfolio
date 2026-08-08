@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-export type Route = "profile" | "strategy";
+export type Route = "profile" | "strategy" | "games";
 
 /**
  * Minimal hash router. GitHub Pages serves a single static file, so a real
@@ -10,7 +10,9 @@ export type Route = "profile" | "strategy";
  * treat a hash that begins with `#/` as a route.
  */
 function parse(hash: string): Route {
-  return hash.startsWith("#/strategy") ? "strategy" : "profile";
+  if (hash.startsWith("#/strategy")) return "strategy";
+  if (hash.startsWith("#/games")) return "games";
+  return "profile";
 }
 
 export function useHashRoute(): { route: Route; navigate: (route: Route) => void } {
@@ -25,7 +27,12 @@ export function useHashRoute(): { route: Route; navigate: (route: Route) => void
   }, []);
 
   const navigate = useCallback((next: Route) => {
-    window.location.hash = next === "strategy" ? "#/strategy" : "#/";
+    const hashByRoute: Record<Route, string> = {
+      strategy: "#/strategy",
+      games: "#/games",
+      profile: "#/",
+    };
+    window.location.hash = hashByRoute[next];
     window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
 

@@ -5,15 +5,19 @@ import { BackToTop } from "@/components/ui/BackToTop";
 import { useHashRoute } from "@/hooks/useHashRoute";
 import { Profile } from "@/pages/Profile";
 import { BusinessCase } from "@/pages/BusinessCase";
+import { Games } from "@/pages/Games";
 
 export default function App() {
   const { route, navigate } = useHashRoute();
+
+  const page =
+    route === "strategy" ? <BusinessCase /> : route === "games" ? <Games /> : <Profile />;
 
   return (
     <>
       <ScrollProgress />
       <Navbar route={route} onNavigate={navigate} />
-      {route === "strategy" ? <BusinessCase /> : <Profile />}
+      {page}
       <Footer />
       <BackToTop />
     </>
