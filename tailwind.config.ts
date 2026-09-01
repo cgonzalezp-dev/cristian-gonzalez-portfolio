@@ -7,21 +7,26 @@ export default {
     extend: {
       colors: {
         ink: {
-          950: "#04070F",
-          900: "#0A1330",
-          800: "#101D46",
-          700: "#1A2C63",
-          600: "#2A4488",
+          950: "#00111F",
+          900: "#001E38",
+          800: "#002E67",
+          700: "#0A3F7D",
+          600: "#155091",
         },
         paper: {
-          50: "#F8FAFD",
-          100: "#EDF2FA",
-          200: "#DCE5F3",
+          50: "#F4F5F8",
+          100: "#E9EDF3",
+          200: "#D6DEEA",
         },
         brass: {
-          400: "#5B93FF",
-          500: "#2F6FED",
-          600: "#1B4FC4",
+          400: "#0099FF",
+          500: "#006EF1",
+          600: "#0056C4",
+        },
+        ember: {
+          400: "#FF9A47",
+          500: "#FF8322",
+          600: "#E86A0A",
         },
         signal: {
           up: "#22C58B",
@@ -36,8 +41,8 @@ export default {
         content: "1120px",
       },
       boxShadow: {
-        soft: "0 1px 2px rgba(8,13,23,0.04), 0 8px 24px -12px rgba(8,13,23,0.18)",
-        softLg: "0 4px 12px rgba(8,13,23,0.06), 0 24px 48px -16px rgba(8,13,23,0.22)",
+        soft: "0 1px 2px rgba(0,17,31,0.06), 0 8px 24px -12px rgba(0,17,31,0.22)",
+        softLg: "0 4px 12px rgba(0,17,31,0.08), 0 24px 48px -16px rgba(0,17,31,0.28)",
       },
       keyframes: {
         "fade-up": {
