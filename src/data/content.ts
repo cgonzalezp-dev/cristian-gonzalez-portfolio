@@ -29,18 +29,18 @@ export const hero = {
   headline: "I don't just run operations. I build the",
   headlineHighlight: "leaders",
   headlineSuffix: "who run them.",
-  roleLine: `${person.role} · Teleperformance`,
-  subhead:
-    "8+ years scaling BPO operations from the ground up — 450+ FTE, 3.6x ROI, and a track record of promoting from within.",
+  paragraphs: [
+    "I started as a customer service rep in 2018. Every role since — Trainer, Supervisor, Account Executive, Senior Account Manager — was an internal promotion. That pattern isn't an accident; it's the result I optimize for.",
+    "I manage 450+ FTE and strategic accounts across North America, LATAM, EMEA, APAC and Africa, but the number I actually track closest is how many of the people on my team move into more responsibility than they started with.",
+  ],
   stats: [
     { value: "3.6x", label: "ROI delivered" },
     { value: "450+", label: "FTE managed" },
-    { value: "9/25", label: "Promoted from my team" },
+    { value: "11/25", label: "Promoted from my team" },
   ],
   primaryCta: { label: "Let's talk", href: `mailto:${person.email}` },
   secondaryCta: { label: "Download résumé", href: person.resumeUrl },
   tertiaryCta: { label: "LinkedIn", href: person.linkedin },
-  photo: { src: "headshot.jpg", alt: `Portrait of ${person.name}` },
 };
 
 export const about = {
@@ -155,12 +155,12 @@ export const results: Stat[] = [
     },
   },
   {
-    value: "10/25",
+    value: "11/25",
     label: "Team members promoted",
     direction: "up",
     detail: {
       title: "Weekly learning, real-time feedback",
-      body: "9 of 25 were promoted because growth was built into the week, not saved for annual reviews. Weekly learning sessions and real-time feedback — delivered in the moment, not weeks later — helped people work from motivation toward their goals, not just toward a score.",
+      body: "11 of 25 were promoted because growth was built into the week, not saved for annual reviews. Weekly learning sessions and real-time feedback — delivered in the moment, not weeks later — helped people work from motivation toward their goals, not just toward a score.",
       methodology: ["Control Phase", "VoE"],
     },
   },
