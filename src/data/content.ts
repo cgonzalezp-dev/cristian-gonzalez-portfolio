@@ -15,7 +15,6 @@ export const person = {
 };
 
 export const nav = [
-  { label: "About", href: "#about" },
   { label: "Experience", href: "#experience" },
   { label: "Results", href: "#results" },
   { label: "Case Study", href: "#case-study" },
@@ -41,6 +40,7 @@ export const hero = {
   primaryCta: { label: "Let's talk", href: `mailto:${person.email}` },
   secondaryCta: { label: "Download résumé", href: person.resumeUrl },
   tertiaryCta: { label: "LinkedIn", href: person.linkedin },
+  photo: { src: "headshot.jpg", alt: `Portrait of ${person.name}` },
 };
 
 export const about = {

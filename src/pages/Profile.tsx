@@ -1,5 +1,4 @@
 import { Hero } from "@/components/sections/Hero";
-import { About } from "@/components/sections/About";
 import { Philosophy } from "@/components/sections/Philosophy";
 import { Experience } from "@/components/sections/Experience";
 import { Results } from "@/components/sections/Results";
@@ -14,7 +13,6 @@ export function Profile() {
   return (
     <main>
       <Hero />
-      <About />
       <Experience />
       <Results />
       <CaseStudy />
