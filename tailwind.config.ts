@@ -35,6 +35,7 @@ export default {
       },
       fontFamily: {
         sans: ["Inter var", "Inter", "system-ui", "sans-serif"],
+        display: ["Hanken Grotesk", "Inter var", "Inter", "system-ui", "sans-serif"],
         serif: ["Georgia", "Iowan Old Style", "Times New Roman", "serif"],
       },
       maxWidth: {

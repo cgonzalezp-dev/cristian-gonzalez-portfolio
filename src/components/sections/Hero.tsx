@@ -20,7 +20,7 @@ export function Hero() {
               <p className="mb-6 text-sm font-semibold uppercase tracking-widest text-brass-500">{hero.eyebrow}</p>
             </Reveal>
             <Reveal delay={0.08}>
-              <h1 className="text-balance max-w-2xl text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-6xl">
+              <h1 className="text-balance max-w-2xl font-display text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-6xl">
                 {hero.headline} <span className="text-ember-500">{hero.headlineHighlight}</span>{" "}
                 {hero.headlineSuffix}
               </h1>
@@ -70,6 +70,14 @@ export function Hero() {
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute -inset-3 rounded-[28px] border-2 border-brass-500/50"
+              />
+              {/* Brand mark set into the top-right of the frame */}
+              <img
+                src={asset("lsg-mark.png")}
+                alt="Lean Solutions Group"
+                width={52}
+                height={52}
+                className="absolute -right-4 -top-5 z-10 h-12 w-12 drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)] sm:-right-5 sm:h-14 sm:w-14"
               />
               <img
                 src={asset(hero.photo.src)}

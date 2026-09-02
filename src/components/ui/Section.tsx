@@ -55,7 +55,7 @@ export function Section({
                   <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-brass-500">{eyebrow}</p>
                 )}
                 {heading && (
-                  <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">{heading}</h2>
+                  <h2 className="text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">{heading}</h2>
                 )}
               </div>
               <ChevronDown
@@ -96,7 +96,7 @@ export function Section({
               <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-brass-500">{eyebrow}</p>
             )}
             {heading && (
-              <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">{heading}</h2>
+              <h2 className="text-balance font-display text-3xl font-bold tracking-tight sm:text-4xl">{heading}</h2>
             )}
             {description && (
               <p className="mt-4 text-lg text-ink-600 dark:text-paper-200/70">{description}</p>

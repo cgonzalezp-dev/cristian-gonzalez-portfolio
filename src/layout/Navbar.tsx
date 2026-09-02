@@ -40,7 +40,7 @@ export function Navbar({ route, onNavigate }: NavbarProps) {
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-ink-900/[0.06] dark:border-white/[0.06] bg-paper-50/80 dark:bg-ink-900/80 backdrop-blur-md">
       <nav className="mx-auto flex h-16 max-w-content items-center justify-between px-6 sm:px-8" aria-label="Primary">
-        <a href="#top" className="text-sm font-bold tracking-tight" onClick={handleBrand}>
+        <a href="#top" className="font-display text-sm font-bold tracking-tight" onClick={handleBrand}>
           {person.name}
         </a>
 
