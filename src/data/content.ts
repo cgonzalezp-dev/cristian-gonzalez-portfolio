@@ -26,11 +26,21 @@ export const nav = [
 
 export const hero = {
   eyebrow: "Operations Leader · BPO",
-  headline: "I don't just run operations. I build the leaders who run them.",
+  headline: "I don't just run operations. I build the",
+  headlineHighlight: "leaders",
+  headlineSuffix: "who run them.",
+  roleLine: `${person.role} · Teleperformance`,
   subhead:
     "8+ years scaling BPO operations from the ground up — 450+ FTE, 3.6x ROI, and a track record of promoting from within.",
+  stats: [
+    { value: "3.6x", label: "ROI delivered" },
+    { value: "450+", label: "FTE managed" },
+    { value: "9/25", label: "Promoted from my team" },
+  ],
   primaryCta: { label: "Let's talk", href: `mailto:${person.email}` },
   secondaryCta: { label: "Download résumé", href: person.resumeUrl },
+  tertiaryCta: { label: "LinkedIn", href: person.linkedin },
+  photo: { src: "headshot.jpg", alt: `Portrait of ${person.name}` },
 };
 
 export const about = {
