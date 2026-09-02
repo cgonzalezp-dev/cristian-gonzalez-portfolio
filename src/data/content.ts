@@ -155,7 +155,7 @@ export const results: Stat[] = [
     },
   },
   {
-    value: "9/25",
+    value: "10/25",
     label: "Team members promoted",
     direction: "up",
     detail: {
