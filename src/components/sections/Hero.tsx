@@ -71,13 +71,13 @@ export function Hero() {
                 aria-hidden="true"
                 className="pointer-events-none absolute -inset-3 rounded-[28px] border-2 border-brass-500/50"
               />
-              {/* Brand mark set into the top-right of the frame */}
+              {/* Brand mark straddling the top-right corner of the frame */}
               <img
                 src={asset("lsg-mark.png")}
                 alt="Lean Solutions Group"
-                width={52}
-                height={52}
-                className="absolute -right-4 -top-5 z-10 h-12 w-12 drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)] sm:-right-5 sm:h-14 sm:w-14"
+                width={112}
+                height={112}
+                className="absolute -right-7 -top-9 z-10 h-20 w-20 drop-shadow-[0_3px_10px_rgba(0,0,0,0.4)] sm:-right-9 sm:-top-11 sm:h-28 sm:w-28"
               />
               <img
                 src={asset(hero.photo.src)}

@@ -168,13 +168,14 @@ export const results: Stat[] = [
 
 export const caseStudy = {
   heading: "Proof, not a pitch",
-  title: "Turning a financial penalty into a peer-led recovery system",
+  title: "Building P&L visibility to steer a 1,200-person region",
   situation:
-    "Our QA score dropped below 80%. If we didn't recover it within a month, the team would lose 5% of overall income — a penalty that was real, and already approved.",
+    "A full region — roughly 1,200 people — was run without real-time traceability of what actually moved its revenue and costs. Strategic calls on both were reactive, made after the numbers had already landed.",
   action:
-    "I designed a peer incentive system, proposed the budget to fund it, and built a weekly ritual where every team showed the others what was actually working.",
-  result: "QA went from under 80% to 90% in four weeks — and the system outlived the crisis that started it.",
-  methodology: ["Process- vs. Agent-Level Fix", "DMAIC: Analyze → Improve"],
+    "I built a P&L structure for the entire region to trace revenue and cost end-to-end, turning it into a decision-making tool rather than a report. On top of it I stood up a periodic control cadence with the operations managers: revenue attainment and cost reduction tracked in real time through Outlier Management and rigorous follow-up on repeat cases — partnering with Labor Relations to act on the people side, not just the numbers.",
+  result:
+    "A 3% improvement in hygiene metrics and a measurable drop in the impact of performance inconsistency — with revenue and cost decisions now made from one shared, traceable view of the region.",
+  methodology: ["P&L Modeling", "Outlier Management", "Real-Time Control Cadence", "Labor Relations Partnership"],
 };
 
 export type SkillGroup = { category: string; items: string[] };
