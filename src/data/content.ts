@@ -18,6 +18,7 @@ export const nav = [
   { label: "Experience", href: "#experience" },
   { label: "Results", href: "#results" },
   { label: "Case Study", href: "#case-study" },
+  { label: "Solutions", href: "#solutions" },
   { label: "Skills", href: "#skills" },
   { label: "Philosophy", href: "#philosophy" },
   { label: "Contact", href: "#contact" },
@@ -183,6 +184,35 @@ export const caseStudy = {
     "Productivity → ROI",
   ],
   methodology: ["P&L Modeling", "Outlier Management", "Real-Time Control Cadence", "Labor Relations Partnership"],
+};
+
+export type Solution = { title: string; text: string };
+
+export const solutions = {
+  heading: "Three disruptive fixes, in under two months",
+  eyebrow: "Disruptive solutions",
+  description:
+    "Finding disruptive solutions is a strength I lean on. Three I built fast — to change how supervisors are developed and how the operation reacts in real time.",
+  items: [
+    {
+      title: "Measurable coaching development",
+      text: "A scalable rubric of operational standards — built with Training and embedded in the operation — so supervisors are developed against measurable modules. Replicable across every region.",
+    },
+    {
+      title: "Lean Six Sigma action plans",
+      text: "A synthesized Lean Six Sigma (Yellow Belt) scheme that lets supervisors present action plans to their managers, making execution both strategic and effective.",
+    },
+    {
+      title: "Real-time NPT tracking",
+      text: "A real-time module built with Workforce to track non-productive-time events — enabling immediate reaction to daily opportunities and preventive moves against weekly contingencies.",
+    },
+  ],
+  impact: [
+    "Built in under 2 months",
+    "Non-productive time down 10–12%",
+    "Coaching-quality gaps held below TP's threshold",
+    "More supervisor action plans, with clearer incentives",
+  ],
 };
 
 export type SkillGroup = { category: string; items: string[] };
