@@ -170,11 +170,18 @@ export const caseStudy = {
   heading: "Proof, not a pitch",
   title: "Building P&L visibility to steer a 1,200-person region",
   situation:
-    "A full region — roughly 1,200 people — was run without real-time traceability of what actually moved its revenue and costs. Strategic calls on both were reactive, made after the numbers had already landed.",
+    "A region of ~1,200 people ran without real-time traceability of what moved its revenue and costs — so calls on both were reactive.",
   action:
-    "I built a P&L structure for the entire region to trace revenue and cost end-to-end, turning it into a decision-making tool rather than a report. On top of it I stood up a periodic control cadence with the operations managers: revenue attainment and cost reduction tracked in real time through Outlier Management and rigorous follow-up on repeat cases — partnering with Labor Relations to act on the people side, not just the numbers.",
+    "I built a region-wide P&L as a decision tool, then a peer follow-up cadence where the leadership team made revenue and cost calls collectively — steering to the committed best estimate instead of reacting to it, even against macro pressure.",
   result:
-    "A 3% improvement in hygiene metrics and a measurable drop in the impact of performance inconsistency — with revenue and cost decisions now made from one shared, traceable view of the region.",
+    "A 3% gain in hygiene metrics and less impact from performance inconsistency — every revenue and cost decision made from one shared, traceable view.",
+  levers: [
+    "TRM / FX exposure",
+    "Cost-to-incentive ratio",
+    "Attrition vs. incentives (monthly)",
+    "Emotional salary — VTO & unpaid leave",
+    "Productivity → ROI",
+  ],
   methodology: ["P&L Modeling", "Outlier Management", "Real-Time Control Cadence", "Labor Relations Partnership"],
 };
 

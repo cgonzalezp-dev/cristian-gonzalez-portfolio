@@ -36,6 +36,20 @@ export function CaseStudy() {
           </Reveal>
         ))}
       </div>
+      {caseStudy.levers && caseStudy.levers.length > 0 && (
+        <Reveal delay={0.35}>
+          <div className="mt-8">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-ink-500 dark:text-paper-200/60">
+              Levers steered toward best estimate
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {caseStudy.levers.map((lever) => (
+                <Badge key={lever}>{lever}</Badge>
+              ))}
+            </div>
+          </div>
+        </Reveal>
+      )}
     </Section>
   );
 }
