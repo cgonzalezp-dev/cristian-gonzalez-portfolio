@@ -71,14 +71,6 @@ export function Hero() {
                 aria-hidden="true"
                 className="pointer-events-none absolute -inset-3 rounded-[28px] border-2 border-brass-500/50"
               />
-              {/* Brand mark on the top-right corner of the frame */}
-              <img
-                src={asset("lsg-mark.png")}
-                alt="Lean Solutions Group"
-                width={80}
-                height={80}
-                className="absolute -right-5 -top-6 z-10 h-16 w-16 drop-shadow-[0_3px_10px_rgba(0,0,0,0.4)] sm:-right-6 sm:-top-7 sm:h-20 sm:w-20"
-              />
               <img
                 src={asset(hero.photo.src)}
                 alt={hero.photo.alt}
